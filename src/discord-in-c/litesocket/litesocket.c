@@ -131,7 +131,7 @@ int simple_receive_websocket(SSL *ssl, char *read_buffer, unsigned long buffer_l
     return -2;
   }
 
-  copied_len = CALC_MIN(content_len, buffer_len);
+  copied_len = MACRO_MIN(content_len, buffer_len);
   memcpy(read_buffer, buf, copied_len);
   *read_len = copied_len;
 

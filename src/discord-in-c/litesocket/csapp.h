@@ -195,7 +195,7 @@ int Open_clientfd(char *hostname, char *port);
 int Open_listenfd(char *port);
 
 /* Tanapoom Sermchaiwong Custom definitions: */
-#define CALC_MIN(x, y) (x < y ? x : y)
+#define MACRO_MIN(x, y) (x < y ? x : y)
 
 #endif /* __CSAPP_H__ */
 /* $end csapp.h */
