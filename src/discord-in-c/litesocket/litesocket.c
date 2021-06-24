@@ -107,6 +107,25 @@ int read_websocket_header(SSL *ssl, unsigned long *msg_len, int *msg_fin) {
   return 0;
 }
 
+unsigned long get_http_content_length(char *header, unsigned long len){
+  char *start = strcasestr(header, "Content-Length:");
+  start += 15;
+
+  while(*start == ' ' || *start == '\t'){
+    start++;
+  }
+  char *end;
+  end = strstr(start, "\r\n");
+  if(end)
+    *end = 0;
+
+  end = strchr(start, ' ');
+  if(end)
+    *end = 0;
+
+  return atoi(start);
+}
+
 /*
  *
  *  Receives websocket message:
@@ -216,6 +235,14 @@ int send_websocket(SSL *ssl, char *msg, unsigned long msglen, int opcode) {
   return 0;
 }
 
+int send_raw(SSL *ssl, char *data, unsigned long len){
+  return SSL_write(ssl, data, len);
+}
+
+int read_raw(SSL *ssl, char *buffer, unsigned long len){
+  return SSL_read(ssl, buffer, len);
+}
+
 int init_litesocket() {
   init_openssl();
   return 0;
@@ -234,6 +261,46 @@ void random_base64(char *buffer, int len) {
   for (int i = 0; i < len; i++) {
     buffer[i] = b64_table[buffer[i] & (63)];
   }
+}
+
+SSL *ssl_reconnect(SSL *ssl, char *hostname, int hostname_len, char *port,
+                              int port_len) {
+  int clientfd;
+  struct addrinfo hints, *listp;
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_family = AF_INET;       // use ipv4
+  hints.ai_flags = AI_NUMERICSERV; // numeric port
+  hints.ai_flags |= AI_ADDRCONFIG; // use supported protocols
+  getaddrinfo(hostname, port, &hints, &listp);
+
+  if ((clientfd = socket(listp->ai_family, listp->ai_socktype,
+                         listp->ai_protocol)) < 0) {
+    printf("ERROR: cannot create socket.\n");
+    freeaddrinfo(listp);
+    return 0;
+  }
+
+  if (connect(clientfd, listp->ai_addr, listp->ai_addrlen) < 0) {
+    printf("ERROR: cannot connect.\n");
+    freeaddrinfo(listp);
+    return 0;
+  }
+
+  freeaddrinfo(listp);
+
+  SSL_shutdown(ssl);
+  SSL_clear(ssl);
+
+  SSL_set_fd(ssl, clientfd);
+  if (SSL_connect(ssl) <= 0) {
+    printf("Error creating SSL connection.\n");
+    return 0;
+  }
+  //printf("SSL connection using %s\n", SSL_get_cipher(ssl));
+
+  return ssl;
 }
 
 SSL *establish_ssl_connection(char *hostname, int hostname_len, char *port,
@@ -322,28 +389,30 @@ SSL *establish_websocket_connection(char *hostname, int hostname_len,
 void *threaded_receive_websock(void *ptr) {
   pthread_detach(pthread_self());
 
-  callback_t *callback_data = (callback_t *)ptr;
+  callback_t callback_data = *((callback_t *)ptr);
+  free(ptr);
+
   char buffer[WEBSOCKET_PAYLOAD_BUFFER_LENGTH];
   unsigned long readlen;
   int msgfin;
 
   int run = 1;
   while (run >= 0){
-    run = simple_receive_websocket(callback_data->ssl, buffer,
-                WEBSOCKET_PAYLOAD_BUFFER_LENGTH, &readlen, &msgfin);
-    (callback_data->callback)(buffer, readlen);
+    run = simple_receive_websocket(callback_data.ssl, buffer,
+                WEBSOCKET_PAYLOAD_BUFFER_LENGTH-1, &readlen, &msgfin);
+    (callback_data.callback)(callback_data.ssl, callback_data.state, buffer, readlen);
   }
 
-  free(ptr);
   return NULL;
 }
 
-pthread_t bind_websocket_listener(SSL *ssl, void (*callback)(char *msg, unsigned long msg_len)){
+pthread_t bind_websocket_listener(SSL *ssl, void *state, callback_func_t callback){
   pthread_t tid;
   
   callback_t *callback_data = malloc(sizeof(callback_t));
   callback_data->callback = callback;
   callback_data->ssl = ssl;
+  callback_data->state = state;
 
   pthread_create(&tid, NULL, threaded_receive_websock, callback_data);
 
