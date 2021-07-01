@@ -107,8 +107,8 @@ void *threaded_gateway_heartbeat(void *ptr) {
     sem_wait(websock_writer_mutex);
     send_websocket(ssl, heartbeat_str_p, msglen, WEBSOCKET_OPCODE_MSG);
     sem_post(websock_writer_mutex);
-    write(STDOUT_FILENO, "\n------HEARTBEAT SENT------\n",
-          strlen("\n------HEARTBEAT SENT------\n"));
+    //write(STDOUT_FILENO, "\n------HEARTBEAT SENT------\n",
+    //      strlen("\n------HEARTBEAT SENT------\n"));
   }
 }
 
@@ -262,8 +262,8 @@ void *threaded_voice_gateway_heartbeat(void *ptr) {
     sem_wait(websock_writer_mutex);
     send_websocket(ssl, heartbeat_str_p, msglen, WEBSOCKET_OPCODE_MSG);
     sem_post(websock_writer_mutex);
-    write(STDOUT_FILENO, "\n------HEARTBEAT SENT------\n",
-          strlen("\n------HEARTBEAT SENT------\n"));
+    //write(STDOUT_FILENO, "\n------HEARTBEAT SENT------\n",
+    //      strlen("\n------HEARTBEAT SENT------\n"));
   }
 }
 
