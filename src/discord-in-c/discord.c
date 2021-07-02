@@ -149,17 +149,17 @@ void update_voice_state(discord_t *discord, char *msg) {
 
   voice_gateway_t *vgt;
   sm_get(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
-  printf("......>>>>>>>%d\n", vgt->heartbeat_interval_usec);
 
-  sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_SESSION_ID, session_id,
-         strlen(session_id) + 1);
-  sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_BOT_ID, botid,
-         strlen(botid) + 1);
-  sem_post(&(vgt->ready_state_update));
+  if(vgt){
+    sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_SESSION_ID, session_id,
+          strlen(session_id) + 1);
+    sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_BOT_ID, botid,
+          strlen(botid) + 1);
+    sem_post(&(vgt->ready_state_update));
+  }
 }
 
 void update_voice_server(discord_t *discord, char *msg) {
-  printf("\n\nwowowowreeeeeee\n\n");
   char *token = strcasestr(msg, DISCORD_GATEWAY_VOICE_TOKEN);
   token += 8;
 
@@ -186,7 +186,6 @@ void update_voice_server(discord_t *discord, char *msg) {
 
   voice_gateway_t *vgt;
   sm_get(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
-  printf("----,,,,,,,,%d\n", vgt->heartbeat_interval_usec);
 
   sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_TOKEN, token,
          strlen(token) + 1);
@@ -208,7 +207,7 @@ void internal_gateway_callback(SSL *ssl, void *state, char *msg,
   }
 
   if (strcasestr(msg, DISCORD_GATEWAY_VOICE_STATE_UPDATE) &&
-      strstr(msg, "835551242246815754")) {
+      strstr(msg, "860200491866128405")) {
     write(STDOUT_FILENO, msg, msg_len);
     write(STDOUT_FILENO, "\n", 1);
     update_voice_state(discord, msg);
@@ -324,6 +323,8 @@ void collect_secret_key(voice_gateway_t *voice, char *msg) {
   }
 
   key[31] = atoi(keystr);
+
+  sem_post(&(voice->voice_key_ready));
 }
 
 void internal_voice_gateway_callback(SSL *ssl, void *state, char *msg,
@@ -378,6 +379,64 @@ void connect_voice_udp(voice_gateway_t *voice) {
   sem_post(&(voice->voice_writer_mutex));
 }
 
+void udp_hole_punch(voice_gateway_t *vgt){
+  char ip[100];
+  char port[100];
+
+  sm_get(vgt->data_dictionary, DISCORD_VOICE_IP, ip, 100);
+  sm_get(vgt->data_dictionary, DISCORD_VOICE_PORT, port, 100);
+
+  int ret;
+  int optval = 0;
+  int fd;
+  struct addrinfo *addrs;
+  struct addrinfo hints;
+
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_DGRAM;
+  hints.ai_flags = 0;
+  hints.ai_protocol = IPPROTO_UDP;
+  ret = getaddrinfo(ip, port, &hints, &addrs);
+  if (ret != 0 || !addrs) {
+    fprintf(stderr, "Cannot resolve host %s port %s: %s\n",
+      ip, port, gai_strerror(ret));
+    return -1;
+  }
+
+  fd = socket(addrs->ai_addr->sa_family, SOCK_DGRAM, IPPROTO_UDP);
+  //check for fd < 0 Couldn't create socket
+  ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
+  //check ret < 0 Couldn't set socket options
+
+  char packet[74];
+  memset(packet, 0, 74);
+  packet[1] = 0x1;
+
+  packet[3] = 0x46;
+
+  packet[4] = 0x00;
+  packet[5] = 0x10;
+  packet[6] = 0x04;
+  packet[7] = 0x6A;
+
+  ret = sendto(fd, packet, 74, 0,addrs->ai_addr, addrs->ai_addrlen);
+
+  char buffer[1000];
+  struct sockaddr_storage src_addr;
+  socklen_t src_addr_len=sizeof(src_addr);
+
+  int cnt = 0;
+  cnt = recvfrom(fd,buffer,sizeof(buffer),0,(struct sockaddr*)&src_addr,&src_addr_len);
+  for(int i = 0; i < cnt; i++){
+    printf("%x ", buffer[i]);
+  }
+  printf("\n");
+
+  close(fd);
+  freeaddrinfo(addrs);
+}
+
 void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
                            usercallback_f voice_callback) {
   int guild_id_len = strlen(guild_id);
@@ -391,8 +450,8 @@ void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
   sem_init(&(vgt->ready_state_update), 0, 0);
   sem_init(&(vgt->ready_server_update), 0, 0);
   sem_init(&(vgt->stream_ready), 0, 0);
+  sem_init(&(vgt->voice_key_ready), 0, 0);
   vgt->data_dictionary = sm_new(DISCORD_DATA_TABLE_SIZE);
-  printf("......%d\n", vgt);
   sm_put(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
 
   char *msg = malloc(guild_id_len + channel_id_len + gate_vo_join_len);
@@ -438,10 +497,12 @@ void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
          DISCORD_MAX_ID_LEN);
 
   authenticate_voice_gateway(vgt, guild_id, botuid, sessionid, token);
-
   sem_wait(&(vgt->stream_ready));
 
+  udp_hole_punch(vgt);
+
   connect_voice_udp(vgt);
+  sem_wait(&(vgt->voice_key_ready));
 
   free(msg);
 }
