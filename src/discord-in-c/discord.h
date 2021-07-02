@@ -97,6 +97,7 @@ typedef struct {
   sem_t ready_state_update;
   sem_t ready_server_update;
   sem_t stream_ready;
+  sem_t voice_key_ready;
   StrMap *data_dictionary;
   unsigned char voice_encryption_key[32];
 } voice_gateway_t;

@@ -16,7 +16,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     char *end = strchr(content, ',') - 1;
     *end = 0;
 
-    if (!strncasecmp(content, "-p ", 3)) {
+    if (!strncasecmp(content, "=p ", 3)) {
       write(STDOUT_FILENO, "\n", 1);
       write(STDOUT_FILENO, content, strlen(content));
       write(STDOUT_FILENO, "\n", 1);
@@ -25,14 +25,14 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       voice_gateway_t *vgt;
       sm_get(dis->voice_gateway_map, "807911659078680576", (char *)&vgt,
              sizeof(void *));
-      printf("%d\n", vgt);
+      //printf("%d\n", vgt);
       send_websocket(
           vgt->voice_ssl,
           "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
           strlen(
               "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
           1);
-
+      //printf("TOUCH!\n");
       if (fork() == 0) {
         char *argv[7];
         argv[0] = "./udprtp";
