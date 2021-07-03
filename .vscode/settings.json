@@ -11,6 +11,7 @@
         "optional": "c",
         "string_view": "c",
         "string": "c",
-        "system_error": "c"
+        "system_error": "c",
+        "curl.h": "c"
     }
 }
