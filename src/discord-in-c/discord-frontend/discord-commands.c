@@ -1,7 +1,7 @@
 #include "discord-commands.h"
 
 /**
- * Figures out whether or not message is a valud command
+ * Figures out whether or not message is a valid command
  */
 void discord_check_message(char *msg, void *state) {
   if (msg[0] == TOKEN) {
@@ -15,7 +15,7 @@ void discord_check_message(char *msg, void *state) {
 
 /**
  * Figures out what command function to call
- * @param message Message of the command, not includeing the prefix
+ * @param message Message of the command, not including the prefix
  * @param state
  */
 void discord_run_command(char *message, void *state) {

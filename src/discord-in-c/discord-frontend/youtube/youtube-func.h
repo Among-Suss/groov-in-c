@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <curl/curl.h>
-#include "youtube-util.h"
+
 
 #define SEARCH_URL "https://www.youtube.com/results?search_query="
 #define VIDEO_URL "https://www.youtube.com/watch?v="
@@ -25,7 +25,7 @@ void search_youtube_for_link_token(char *searchToken, char *linkToken);
 void search_youtube_for_link(char *searchToken, char *url);
 
 
-// Lib curl
+/* -------------------------------- Lib curl -------------------------------- */
 struct MemoryStruct {
   char *memory;
   size_t size;
@@ -33,3 +33,19 @@ struct MemoryStruct {
 
 static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb,
                                   void *userp);
+
+
+/* ---------------------------------- Utils --------------------------------- */
+
+#define HTML_BUFFER 4069
+
+/**
+ * Parses raw HTML string of a youtube search page for the first search result
+ * @param html HTML string to parse
+ * @param outputLinkToken Char pointer to the string to store the output
+ */
+void getVideoLinkFromHTML(char *html, char *outputLinkToken);
+
+#define DESC_LENGTH 150
+
+void getTimeStampsFromHTML(char *html);
