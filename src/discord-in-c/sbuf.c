@@ -1,20 +1,6 @@
 #include "sbuf.h"
 
 // sbuf package based on linked list
-struct linked_node_t {
-  void *value;
-  int len;
-  struct linked_node_t *next;
-  struct linked_node_t *prev;
-};
-
-struct sbuf_t {
-  struct linked_node_t *front;
-  struct linked_node_t *back;
-  sem_t items;
-  sem_t mutex;
-  int size;
-};
 
 void sbuf_init(struct sbuf_t *sp) {
   sp->size = 0;
@@ -104,7 +90,7 @@ struct linked_node_t *DONOTUSE_sbuf_remove_end(struct sbuf_t *sp,
   return retval;
 }
 
-void sbuf_remove_value(struct sbuf_t *sp, void *value, int len) {
+int sbuf_remove_value(struct sbuf_t *sp, void *value, int len) {
 
   if (sem_wait(&(sp->mutex)) < 0) {
     printf("semaphor ERror\n");
@@ -127,6 +113,8 @@ void sbuf_remove_value(struct sbuf_t *sp, void *value, int len) {
     free(cp->value);
     free(cp);
 
+    sp->size--;
+
     if (sem_trywait(&(sp->items)) < 0) {
       printf("semaphor ERror\n");
     }
@@ -135,6 +123,8 @@ void sbuf_remove_value(struct sbuf_t *sp, void *value, int len) {
   if (sem_post(&(sp->mutex)) < 0) {
     printf("semaphor ERror\n");
   }
+
+  return found;
 }
 
 void sbuf_insert_front_value(struct sbuf_t *sp, void *value, int len) {
