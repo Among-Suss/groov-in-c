@@ -130,6 +130,7 @@ void getVideoLinkFromHTML(char *html, char *outputLinkToken) {
   int j = 0;
   char c = html[0];
 
+  // TODO: Maybe use Regex instead
   while (c != '\0') {
     c = html[i++];
 
@@ -168,7 +169,37 @@ void getVideoLinkFromHTML(char *html, char *outputLinkToken) {
   }
 }
 
-void getVideoTimeStampsFromHTML(char *HTML) {}
+void getVideoTimeStampsFromHTMLFile(FILE *fp) {
+  char buf[DESC_LENGTH + 1];
+
+  regex_t regex;
+  int regErr;
+
+  /* Compile regular expression */
+  regErr = regcomp(&regex, TIMESTAMP_REGEX, 0);
+
+  regmatch_t match[1];
+
+  while (fgets(buf, DESC_LENGTH, fp)) {
+    // puts(buf);
+
+    /* Execute regular expression */
+    regErr = regexec(&regex, buf, 1, match, 0);
+
+    char matchedString[TIMESTAMP_LENGTH + 1];
+
+    if (!regErr) {
+
+      int numchars = (int)match[0].rm_eo - (int)match[0].rm_so;
+      strncpy(matchedString, buf + match[0].rm_so, numchars);
+      matchedString[numchars] = '\0';
+
+      printf("(%s)\n", matchedString);
+    }
+  }
+
+  pclose(fp);
+}
 
 // int main(int argc, char *argv[]) {
 //   char link[YOUTUBE_VIDEO_URL_SIZE];

@@ -78,7 +78,7 @@ struct linked_node_t *DONOTUSE_sbuf_remove_end(struct sbuf_t *sp,
     if (sem_wait(&(sp->items)) < 0) {
       printf("semaphor ERror\n");
     }
-  }else{
+  } else {
     if (sem_trywait(&(sp->items)) < 0) {
       printf("semaphor ERror\n");
     }
@@ -146,7 +146,7 @@ void sbuf_insert_front_value(struct sbuf_t *sp, void *value, int len) {
 }
 
 void *sbuf_remove_end_value(struct sbuf_t *sp, void *retval, int len,
-                           int lockitem) {
+                            int lockitem) {
   struct linked_node_t *retnode = DONOTUSE_sbuf_remove_end(sp, lockitem);
 
   if (retnode) {

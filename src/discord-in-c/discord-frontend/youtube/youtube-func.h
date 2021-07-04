@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <curl/curl.h>
+#include <regex.h>
+#include "../../sbuf.c"
 
 
 #define SEARCH_URL "https://www.youtube.com/results?search_query="
@@ -47,5 +49,7 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb,
 void getVideoLinkFromHTML(char *html, char *outputLinkToken);
 
 #define DESC_LENGTH 150
+#define TIMESTAMP_REGEX "[0-9]*:[0-9][0-9]\\(:[0-9][0-9]\\)*"
+#define TIMESTAMP_LENGTH 8
 
-void getTimeStampsFromHTML(char *html);
+void getTimeStampsFromHTML(char *html, struct sbuf_t *timestampList);
