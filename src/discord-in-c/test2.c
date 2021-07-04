@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
   printf("%s\n", buf);
 
   set_gateway_callback(discord, actually_do_shit);
-  connect_gateway(discord);
+  connect_gateway(discord, "643");
 
   connect_voice_gateway(discord, "807911659078680576", "857087599557607466",
                         on_message);
