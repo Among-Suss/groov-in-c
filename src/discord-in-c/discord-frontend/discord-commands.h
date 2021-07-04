@@ -10,6 +10,7 @@
 #define CMD_PLAY "p"
 #define CMD_SEEK "seek"
 #define CMD_SKIP "skip"
+#define CMD_TO_NEXT_TIMESTAMP "next"
 
 void discord_check_message(char *msg, void *state);
 void discord_run_command(char *cmd_msg, void *state);
@@ -17,6 +18,7 @@ void discord_run_command(char *cmd_msg, void *state);
 void discord_play_song(char *urlOrSearchTokens);
 void discord_skip();
 void discord_seek(int position);
+void discord_to_next_timestamp(char *url);
 
 /* Helper functions */
 #define YOUTUBE_TOKEN "youtube.com/watch?v="

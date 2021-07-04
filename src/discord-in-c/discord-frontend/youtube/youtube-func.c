@@ -86,6 +86,21 @@ void search_youtube_for_link(char *searchToken, char *url) {
   strcpy(url, youtubeUrl);
 }
 
+void youtube_get_timestamps(char *url) {
+  FILE *fp;
+  char cmd[YT_DL_DESC_MAX] = YT_DL_DESC_COMMAND;
+
+  strcat(cmd, url);
+
+  puts(cmd);
+
+  fp = popen(cmd, "r");
+
+  getVideoTimeStampsFromHTMLFile(fp);
+
+  pclose(fp);
+}
+
 // Lib curl callback
 static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb,
                                   void *userp) {
@@ -197,8 +212,6 @@ void getVideoTimeStampsFromHTMLFile(FILE *fp) {
       printf("(%s)\n", matchedString);
     }
   }
-
-  pclose(fp);
 }
 
 // int main(int argc, char *argv[]) {

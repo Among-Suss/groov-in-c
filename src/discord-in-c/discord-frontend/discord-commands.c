@@ -28,13 +28,15 @@ void discord_run_command(char *message, void *state) {
 
   // printf("Command: %s\n", cmd);
 
-  if (strcmp(cmd, CMD_PLAY) == 0) {
+  if (!strcmp(cmd, CMD_PLAY)) {
     discord_play_song(args);
-  } else if (strcmp(cmd, CMD_SKIP) == 0) {
+  } else if (!strcmp(cmd, CMD_SKIP)) {
     discord_skip();
-  } else if (strcmp(cmd, CMD_SEEK) == 0) {
+  } else if (!strcmp(cmd, CMD_SEEK)) {
     int position = atoi(args);
     discord_seek(position);
+  } else if (!strcmp(cmd, CMD_TO_NEXT_TIMESTAMP)) {
+    discord_to_next_timestamp(args);
   }
 }
 
@@ -59,6 +61,8 @@ void discord_play_song(char *urlOrSearchTokens) {
 void discord_skip() {}
 
 void discord_seek(int position) { printf("Seeking to %d\n", position); }
+
+void discord_to_next_timestamp(char *url) { youtube_get_timestamps(url); }
 
 /* ---------------------------- HELPER FUNCTIONS ---------------------------- */
 

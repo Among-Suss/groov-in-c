@@ -3,7 +3,6 @@
 #include <string.h>
 #include <curl/curl.h>
 #include <regex.h>
-#include "../../sbuf.c"
 
 
 #define SEARCH_URL "https://www.youtube.com/results?search_query="
@@ -25,6 +24,8 @@ void search_youtube_for_link_token(char *searchToken, char *linkToken);
  * @param url Url string. Size must be YOUTUBE_VIDEO_URL_SIZE
  */
 void search_youtube_for_link(char *searchToken, char *url);
+
+void youtube_get_timestamps(char *url);
 
 
 /* -------------------------------- Lib curl -------------------------------- */
@@ -52,4 +53,7 @@ void getVideoLinkFromHTML(char *html, char *outputLinkToken);
 #define TIMESTAMP_REGEX "[0-9]*:[0-9][0-9]\\(:[0-9][0-9]\\)*"
 #define TIMESTAMP_LENGTH 8
 
-void getTimeStampsFromHTML(char *html, struct sbuf_t *timestampList);
+#define YT_DL_DESC_COMMAND "youtube-dl --get-description --skip-download --youtube-skip-dash-manifest "
+#define YT_DL_DESC_MAX 150
+
+void getVideoTimeStampsFromHTMLFile(FILE *html);
