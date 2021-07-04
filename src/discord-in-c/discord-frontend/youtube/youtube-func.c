@@ -6,7 +6,7 @@
  * @param searchToken String to search for in youtube
  * @param linkToken Output link token
  */
-void searchYoutubeForLinkToken(char *searchToken, char *linkToken) {
+void search_youtube_for_link_token(char *searchToken, char *linkToken) {
   char url[46 + SEARCH_TOKEN_BUFFER] = SEARCH_URL;
 
   // GET Request https://curl.se/libcurl/c/getinmemory.html
@@ -66,16 +66,16 @@ void searchYoutubeForLinkToken(char *searchToken, char *linkToken) {
 }
 
 /**
- * Wraps searchYoutubeForLinkToken to automatically prepend the youtube watch
- * url
+ * Wraps search_youtube_for_link_token to automatically prepend the youtube
+ * watch url
  * @param searchToken
  * @param url
  */
-void searchYoutubeForLink(char *searchToken, char *url) {
+void search_youtube_for_link(char *searchToken, char *url) {
   char token[YOUTUBE_TOKEN_SIZE];
   char youtubeUrl[YOUTUBE_VIDEO_URL_SIZE] = VIDEO_URL;
 
-  searchYoutubeForLinkToken(searchToken, token);
+  search_youtube_for_link_token(searchToken, token);
 
   strcat(youtubeUrl, token);
   strcpy(url, youtubeUrl);
@@ -105,7 +105,7 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb,
 //   char link[YOUTUBE_VIDEO_URL_SIZE];
 
 //   if (argc > 1) {
-//     searchYoutubeForLink(argv[1], link);
+//     search_youtube_for_link(argv[1], link);
 
 //     printf("%s\n", link);
 //   }

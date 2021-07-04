@@ -15,14 +15,14 @@
  * @param searchToken String to search for in youtube
  * @param linkToken Output link token
  */
-void searchYoutubeForLinkToken(char *searchToken, char *linkToken);
+void search_youtube_for_link_token(char *searchToken, char *linkToken);
 
 /**
  * Gets the youtube video url of the first search result
  * @param searchToken
  * @param url Url string. Size must be YOUTUBE_VIDEO_URL_SIZE
  */
-void searchYoutubeForLink(char *searchToken, char *url);
+void search_youtube_for_link(char *searchToken, char *url);
 
 
 // Lib curl
