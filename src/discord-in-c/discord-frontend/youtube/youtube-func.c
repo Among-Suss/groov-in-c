@@ -73,7 +73,7 @@ void searchYoutubeForLinkToken(char *searchToken, char *linkToken) {
  */
 void searchYoutubeForLink(char *searchToken, char *url) {
   char token[YOUTUBE_TOKEN_SIZE];
-  char youtubeUrl[YOUTUBE_VIDEO_URL_SIZE + YOUTUBE_TOKEN_SIZE] = VIDEO_URL;
+  char youtubeUrl[YOUTUBE_VIDEO_URL_SIZE] = VIDEO_URL;
 
   searchYoutubeForLinkToken(searchToken, token);
 
@@ -101,12 +101,12 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb,
   return realsize;
 }
 
-int main(int argc, char *argv[]) {
-  char link[YOUTUBE_VIDEO_URL_SIZE + YOUTUBE_TOKEN_SIZE];
+// int main(int argc, char *argv[]) {
+//   char link[YOUTUBE_VIDEO_URL_SIZE];
 
-  if (argc > 1) {
-    searchYoutubeForLink(argv[1], link);
+//   if (argc > 1) {
+//     searchYoutubeForLink(argv[1], link);
 
-    printf("%s\n", link);
-  }
-}
+//     printf("%s\n", link);
+//   }
+// }

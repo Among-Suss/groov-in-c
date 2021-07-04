@@ -12,7 +12,8 @@
         "string_view": "c",
         "string": "c",
         "system_error": "c",
-        "curl.h": "c"
+        "curl.h": "c",
+        "discord-utils.c": "cpp"
     },
     "editor.tabSize": 2
 }
