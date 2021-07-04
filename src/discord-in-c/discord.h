@@ -23,7 +23,7 @@
 #define DISCORD_GATEWAY_HEARTBEAT                                              \
   "{\"op\": 1,\"d\": {},\"s\": null,\"t\": null}"
 #define DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE "\"op\":10"
-#define DISCORD_GATEWAY_AUTH_STRING "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": 643,\"properties\": {\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": \"discord_dot_c\"}}}"
+#define DISCORD_GATEWAY_AUTH_STRING "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": %s,\"properties\": {\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": \"discord_dot_c\"}}}"
 
 #define DISCORD_VOICE_GT_URI "/?v=4"
 #define DISCORD_GATEWAY_VOICE_JOIN                                             \
@@ -44,6 +44,9 @@
 #define DISCORD_VOICE_UDP_ENC_DEFAULT "xsalsa20_poly1305"
 
 // gateway reply search strings and dict keys
+#define DISCORD_GATEWAY_READY "\"t\":\"READY\""
+#define DISCORD_GATEWAY_USERNAME "username"
+#define DISCORD_GATEWAY_BOT_ID "id"
 #define DISCORD_GATEWAY_VOICE_STATE_UPDATE "VOICE_STATE_UPDATE"
 #define DISCORD_GATEWAY_VOICE_SERVER_UPDATE "VOICE_SERVER_UPDATE"
 #define DISCORD_GATEWAY_HEARTBEAT_INTERVAL "\"heartbeat_interval"
@@ -104,7 +107,7 @@ typedef struct {
 
 discord_t *init_discord(char *bot_token);
 void free_discord(discord_t *discord);
-void connect_gateway(discord_t *discord_data);
+void connect_gateway(discord_t *discord_data, char *discord_intent);
 void set_gateway_callback(discord_t *discord, usercallback_f gateway_callback);
 void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
                            usercallback_f voice_callback);

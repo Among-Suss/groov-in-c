@@ -1,9 +1,13 @@
 #include "discord.h"
 
-void authenticate_gateway(discord_t *discord);
+void authenticate_gateway(discord_t *discord, char *discord_intent);
 void internal_gateway_callback(SSL *ssl, void *state, char *msg,
                                unsigned long msg_len);
+void *threaded_gateway_heartbeat(void *ptr);
+void *threaded_voice_gateway_heartbeat(void *ptr);
 
+//first function to be called to inititalize
+//discord's gateway
 discord_t *init_discord(char *bot_token) {
   discord_t *discord_data = malloc(sizeof(discord_t));
   memset(discord_data, 0, sizeof(discord_t));
@@ -38,11 +42,15 @@ discord_t *init_discord(char *bot_token) {
   *end = 0;
 
   sm_put(sm, DISCORD_HOSTNAME_KEY, start, strlen(start) + 1);
-  sm_put(sm, DISCORD_PORT_KEY, "443", 4);
+  sm_put(sm, DISCORD_PORT_KEY, DISCORD_PORT, 4);
 
   return discord_data;
 }
 
+
+//These functions deal with cleanup code
+
+//cleanup callback
 void enum_callback_delete(const char *key, const char *value, int value_len,
                           const void *obj) {
   voice_gateway_t *vgt = *((void **)value);
@@ -54,6 +62,7 @@ void enum_callback_delete(const char *key, const char *value, int value_len,
   free(vgt);
 }
 
+//free function
 void free_discord(discord_t *discord) {
   pthread_cancel(discord->heartbeat_tid);
   pthread_cancel(discord->gateway_listen_tid);
@@ -73,7 +82,20 @@ void free_discord(discord_t *discord) {
   free(discord);
 }
 
-void connect_gateway(discord_t *discord_data) {
+
+
+
+
+
+
+
+
+//GATEWAY HANDLER FUNCTIONS ---------------------------------------
+
+//connects to the gateway with the intent
+//according to the API
+//connects only this particular discord_t obj
+void connect_gateway(discord_t *discord_data, char *discord_intent) {
   char gateway_host[MAX_URL_LEN];
   char gateway_port[MAX_PORT_LEN];
 
@@ -89,29 +111,10 @@ void connect_gateway(discord_t *discord_data) {
   discord_data->gateway_listen_tid = bind_websocket_listener(
       gatewayssl, discord_data, internal_gateway_callback);
 
-  authenticate_gateway(discord_data);
+  authenticate_gateway(discord_data, discord_intent);
 }
 
-void *threaded_gateway_heartbeat(void *ptr) {
-  discord_t *discord = ptr;
-  char *heartbeat_str_p = DISCORD_GATEWAY_HEARTBEAT;
-  unsigned long msglen = strlen(heartbeat_str_p);
-
-  SSL *ssl = discord->gateway_ssl;
-  useconds_t heartbeat_interval = discord->heartbeat_interval_usec;
-
-  sem_t *websock_writer_mutex = &(discord->gateway_writer_mutex);
-
-  while (1) {
-    usleep(heartbeat_interval);
-    sem_wait(websock_writer_mutex);
-    send_websocket(ssl, heartbeat_str_p, msglen, WEBSOCKET_OPCODE_MSG);
-    sem_post(websock_writer_mutex);
-    //write(STDOUT_FILENO, "\n------HEARTBEAT SENT------\n",
-    //      strlen("\n------HEARTBEAT SENT------\n"));
-  }
-}
-
+//handles gateway init heartbeat
 void start_heartbeat_gateway(discord_t *discord, char *msg) {
   char *heartbeatp = strcasestr(msg, DISCORD_GATEWAY_HEARTBEAT_INTERVAL);
   heartbeatp += 21;
@@ -125,6 +128,8 @@ void start_heartbeat_gateway(discord_t *discord, char *msg) {
                  discord);
 }
 
+//handle voice state obj from discord
+//when connecting to voice
 void update_voice_state(discord_t *discord, char *msg) {
   char *session_id = strcasestr(msg, DISCORD_GATEWAY_VOICE_SESSION_ID);
   session_id += 13;
@@ -148,9 +153,9 @@ void update_voice_state(discord_t *discord, char *msg) {
   *end = 0;
 
   voice_gateway_t *vgt;
-  sm_get(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
+  int ret = sm_get(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
 
-  if(vgt){
+  if(ret){
     sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_SESSION_ID, session_id,
           strlen(session_id) + 1);
     sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_BOT_ID, botid,
@@ -159,6 +164,8 @@ void update_voice_state(discord_t *discord, char *msg) {
   }
 }
 
+//handles voice server object from discord
+//when connecting to voice
 void update_voice_server(discord_t *discord, char *msg) {
   char *token = strcasestr(msg, DISCORD_GATEWAY_VOICE_TOKEN);
   token += 8;
@@ -196,6 +203,20 @@ void update_voice_server(discord_t *discord, char *msg) {
   sem_post(&(vgt->ready_server_update));
 }
 
+//handles gateway ready object in order to
+//collect bot id
+void gateway_ready(discord_t *discord, char *msg){
+  char *bot_id = strcasestr(msg, DISCORD_GATEWAY_USERNAME);
+  bot_id = strcasestr(bot_id, DISCORD_GATEWAY_BOT_ID) + 5;
+
+  char *end = strcasestr(bot_id, "\"");
+  *end = 0;
+
+  sm_put(discord->data_dictionary, DISCORD_GATEWAY_BOT_ID, bot_id,
+    strlen(bot_id) + 1);
+}
+
+//function called by litesocket.c bounded socket reader
 void internal_gateway_callback(SSL *ssl, void *state, char *msg,
                                unsigned long msg_len) {
   discord_t *discord = state;
@@ -206,8 +227,16 @@ void internal_gateway_callback(SSL *ssl, void *state, char *msg,
     return;
   }
 
+  if (strcasestr(msg, DISCORD_GATEWAY_READY)) {
+    gateway_ready(discord, msg);
+    return;
+  }
+
+  char bot_id[DISCORD_MAX_ID_LEN];
+  int ret = sm_get(discord->data_dictionary, DISCORD_GATEWAY_BOT_ID, bot_id, DISCORD_MAX_ID_LEN);
+
   if (strcasestr(msg, DISCORD_GATEWAY_VOICE_STATE_UPDATE) &&
-      strstr(msg, "860200491866128405")) {
+      ret && strstr(msg, bot_id)) {
     write(STDOUT_FILENO, msg, msg_len);
     write(STDOUT_FILENO, "\n", 1);
     update_voice_state(discord, msg);
@@ -227,18 +256,20 @@ void internal_gateway_callback(SSL *ssl, void *state, char *msg,
   }
 }
 
+//bind user's function to the gateway callback
 void set_gateway_callback(discord_t *discord, usercallback_f gateway_callback) {
   discord->gateway_callback = gateway_callback;
 }
 
-void authenticate_gateway(discord_t *discord) {
+//this function is used internally to authenticate gateway
+void authenticate_gateway(discord_t *discord, char *discord_intent) {
   char bot_token[MAX_BOT_TOKEN_LEN];
   sm_get(discord->data_dictionary, BOT_TOKEN_KEY, bot_token, MAX_BOT_TOKEN_LEN);
 
   int auth_str_len = strlen(DISCORD_GATEWAY_AUTH_STRING);
   char msg[MAX_BOT_TOKEN_LEN + auth_str_len];
 
-  snprintf(msg, MAX_BOT_TOKEN_LEN + auth_str_len, DISCORD_GATEWAY_AUTH_STRING, bot_token);
+  snprintf(msg, MAX_BOT_TOKEN_LEN + auth_str_len, DISCORD_GATEWAY_AUTH_STRING, bot_token, discord_intent);
 
   sem_wait(&(discord->gateway_writer_mutex));
   send_websocket(discord->gateway_ssl, msg, strlen(msg),
@@ -246,25 +277,18 @@ void authenticate_gateway(discord_t *discord) {
   sem_post(&(discord->gateway_writer_mutex));
 }
 
-void *threaded_voice_gateway_heartbeat(void *ptr) {
-  voice_gateway_t *voice = ptr;
-  char *heartbeat_str_p = DISCORD_VOICE_HEARTBEAT;
-  unsigned long msglen = strlen(heartbeat_str_p);
+//END OF GATEWAY FUNCTIONS ---------------------------------------
 
-  SSL *ssl = voice->voice_ssl;
-  useconds_t heartbeat_interval = voice->heartbeat_interval_usec;
 
-  sem_t *websock_writer_mutex = &(voice->voice_writer_mutex);
 
-  while (1) {
-    usleep(heartbeat_interval);
-    sem_wait(websock_writer_mutex);
-    send_websocket(ssl, heartbeat_str_p, msglen, WEBSOCKET_OPCODE_MSG);
-    sem_post(websock_writer_mutex);
-    //write(STDOUT_FILENO, "\n------HEARTBEAT SENT------\n",
-    //      strlen("\n------HEARTBEAT SENT------\n"));
-  }
-}
+
+
+
+
+
+
+
+//VOICE GATEWAY HANDLER FUNCTIONS -------------------------------
 
 void start_heartbeat_voice_gateway(voice_gateway_t *voice, char *msg) {
   char *heartbeatp = strcasestr(msg, DISCORD_GATEWAY_HEARTBEAT_INTERVAL);
@@ -499,10 +523,56 @@ void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
   authenticate_voice_gateway(vgt, guild_id, botuid, sessionid, token);
   sem_wait(&(vgt->stream_ready));
 
-  udp_hole_punch(vgt);
+  //udp_hole_punch(vgt);
 
   connect_voice_udp(vgt);
   sem_wait(&(vgt->voice_key_ready));
 
   free(msg);
+}
+
+//END OFVOICE GATEWAY HANDLER FUNCTIONS ------------------
+
+
+
+
+
+
+
+//HEARTBEAT FUNCTIONS....
+
+void *threaded_gateway_heartbeat(void *ptr) {
+  discord_t *discord = ptr;
+  char *heartbeat_str_p = DISCORD_GATEWAY_HEARTBEAT;
+  unsigned long msglen = strlen(heartbeat_str_p);
+
+  SSL *ssl = discord->gateway_ssl;
+  useconds_t heartbeat_interval = discord->heartbeat_interval_usec;
+
+  sem_t *websock_writer_mutex = &(discord->gateway_writer_mutex);
+
+  while (1) {
+    usleep(heartbeat_interval);
+    sem_wait(websock_writer_mutex);
+    send_websocket(ssl, heartbeat_str_p, msglen, WEBSOCKET_OPCODE_MSG);
+    sem_post(websock_writer_mutex);
+  }
+}
+
+void *threaded_voice_gateway_heartbeat(void *ptr) {
+  voice_gateway_t *voice = ptr;
+  char *heartbeat_str_p = DISCORD_VOICE_HEARTBEAT;
+  unsigned long msglen = strlen(heartbeat_str_p);
+
+  SSL *ssl = voice->voice_ssl;
+  useconds_t heartbeat_interval = voice->heartbeat_interval_usec;
+
+  sem_t *websock_writer_mutex = &(voice->voice_writer_mutex);
+
+  while (1) {
+    usleep(heartbeat_interval);
+    sem_wait(websock_writer_mutex);
+    send_websocket(ssl, heartbeat_str_p, msglen, WEBSOCKET_OPCODE_MSG);
+    sem_post(websock_writer_mutex);
+  }
 }
