@@ -145,7 +145,7 @@ void sbuf_insert_front_value(struct sbuf_t *sp, void *value, int len) {
   DONOTUSE_sbuf_insert_front(sp, newnode);
 }
 
-int *sbuf_remove_end_value(struct sbuf_t *sp, void *retval, int len,
+void *sbuf_remove_end_value(struct sbuf_t *sp, void *retval, int len,
                            int lockitem) {
   struct linked_node_t *retnode = DONOTUSE_sbuf_remove_end(sp, lockitem);
 
