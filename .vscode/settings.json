@@ -13,7 +13,7 @@
         "string": "c",
         "system_error": "c",
         "curl.h": "c",
-        "discord-utils.c": "cpp"
+                "sbuf.h": "c"
     },
     "editor.tabSize": 2
 }
