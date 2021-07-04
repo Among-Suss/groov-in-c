@@ -1,3 +1,4 @@
+#include "../youtube-util/youtube-func.h"
 #include "discord-utils.c"
 #include <stdio.h>
 #include <stdlib.h>
