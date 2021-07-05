@@ -1,5 +1,7 @@
 #include <semaphore.h>
 
+#define MIN(x,y) x < y ? x : y
+
 // sbuf package based on linked list
 
 //linked list node structure

@@ -12,6 +12,9 @@
         "string_view": "c",
         "string": "c",
         "system_error": "c",
-        "sbuf.h": "c"
+        "sbuf.h": "c",
+        "sodium.h": "c",
+        "media.h": "c",
+        "opus.h": "c"
     }
 }
