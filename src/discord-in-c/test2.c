@@ -6,6 +6,8 @@ void on_message(void *state, char *msg, unsigned long msg_len) {
   write(STDOUT_FILENO, "yayay \n", strlen("yayay \n"));
 }
 
+int counter1 = 0;
+
 void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   discord_t *dis = state;
 
@@ -54,7 +56,12 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       sm_get(vgt->data_dictionary, DISCORD_VOICE_PORT, argv[2], 100);
       sm_get(vgt->data_dictionary, DISCORD_VOICE_SECRET_KEY, argv[4], 1000);
 
-      play_youtube_in_thread(argv[5], argv[4], argv[3], argv[1], argv[2], "CACHEFILE_TMP_FFMPEG_DL.out");
+      char ufid[1000];
+      memset(ufid, 0, 1000);
+      snprintf(ufid, 1000, "AUDIOTMP.%d%s", counter1, ".out");
+      //counter1++;
+
+      play_youtube_in_thread(argv[5], argv[4], argv[3], argv[1], argv[2], ufid);
 
       /*
       if (fork() == 0) {

@@ -69,7 +69,8 @@ int read_http_header(SSL *ssl, char *headerbuf, unsigned long buffer_len,
  */
 int read_websocket_header(SSL *ssl, unsigned long *msg_len, int *msg_fin) {
   unsigned char frameHeader[16];
-  unsigned long plen;
+  memset(frameHeader, 0, sizeof(frameHeader));
+  unsigned long plen = 0;
 
   if (SSL_read(ssl, frameHeader, 2) < 0) {
     return -1;

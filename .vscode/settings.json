@@ -16,6 +16,9 @@
         "sodium.h": "c",
         "media.h": "c",
         "opus.h": "c",
-        "wait.h": "c"
+        "wait.h": "c",
+        "hash_map": "c",
+        "chrono": "c",
+        "algorithm": "c"
     }
 }
