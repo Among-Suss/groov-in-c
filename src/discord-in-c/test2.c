@@ -1,4 +1,5 @@
 #include "discord.h"
+#include "media.h"
 
 void on_message(void *state, char *msg, unsigned long msg_len) {
   write(STDOUT_FILENO, msg, msg_len);
@@ -33,6 +34,29 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
               "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
           1);
       //printf("TOUCH!\n");
+
+      char *argv[7];
+      argv[0] = "./udprtp";
+      char a[100];
+      argv[1] = a;
+      char b[100];
+      argv[2] = b;
+      argv[3] = "66666";
+      char c[1000];
+      argv[4] = c;
+      char d[1000];
+      argv[5] = d;
+      argv[6] = 0;
+
+      strcpy(argv[5], content);
+
+      sm_get(vgt->data_dictionary, DISCORD_VOICE_IP, argv[1], 100);
+      sm_get(vgt->data_dictionary, DISCORD_VOICE_PORT, argv[2], 100);
+      sm_get(vgt->data_dictionary, DISCORD_VOICE_SECRET_KEY, argv[4], 1000);
+
+      play_youtube_in_thread(argv[5], argv[4], argv[3], argv[1], argv[2], "CACHEFILE_TMP_FFMPEG_DL.out");
+
+      /*
       if (fork() == 0) {
         char *argv[7];
         argv[0] = "./udprtp";
@@ -56,15 +80,16 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         printf("\n\n%s\n%s\n%s\n%s\n%s\n", argv[1], argv[2], argv[3], argv[4],
                argv[5]);
 
-        char *arge[2];
-        arge[0] = "/usr/bin/ls";
-        arge[1] = 0;
+        //char *arge[2];
+        //arge[0] = "/usr/bin/ls";
+        //arge[1] = 0;
         //execv(arge[0], arge);
         //printf("fail?\n");
 
         int x = execv(argv[0], argv);
         printf("execve failed: %d\n\n", x);
       }
+      */
     }
   }
 }

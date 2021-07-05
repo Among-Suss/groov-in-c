@@ -29,8 +29,6 @@
 
 #include "../../config.h"
 
-#define MAX_URL_LEN 2048
-
 //defines from opusrtp.c
 #define RTP_HEADER_MIN 12
 typedef struct {
@@ -43,3 +41,19 @@ typedef struct {
   int header_size;
   int payload_size;
 } rtp_header;
+
+typedef struct {
+    pid_t pid;
+    int *ffmpeg_process_state;
+} ffmpeg_process_waiter_t;
+
+typedef struct {
+    char *youtube_link;
+    char *key_str;
+    char *ssrc_str;
+    char *dest_address;
+    char *dest_port;
+    char *cache_file_unique_name;
+} youtube_player_t;
+
+void play_youtube_in_thread(char *youtube_link, char *key_str, char *ssrc_str, char *dest_address, char *dest_port, char *cache_file_unique_name);

@@ -15,6 +15,7 @@
         "sbuf.h": "c",
         "sodium.h": "c",
         "media.h": "c",
-        "opus.h": "c"
+        "opus.h": "c",
+        "wait.h": "c"
     }
 }

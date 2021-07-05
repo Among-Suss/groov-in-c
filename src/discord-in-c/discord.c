@@ -403,7 +403,7 @@ void connect_voice_udp(voice_gateway_t *voice) {
   sem_post(&(voice->voice_writer_mutex));
 }
 
-void udp_hole_punch(voice_gateway_t *vgt){
+int udp_hole_punch(voice_gateway_t *vgt){
   char ip[100];
   char port[100];
 
@@ -459,6 +459,8 @@ void udp_hole_punch(voice_gateway_t *vgt){
 
   close(fd);
   freeaddrinfo(addrs);
+
+  return 0;
 }
 
 void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
@@ -542,6 +544,7 @@ void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
 //HEARTBEAT FUNCTIONS....
 
 void *threaded_gateway_heartbeat(void *ptr) {
+  pthread_detach(pthread_self());
   discord_t *discord = ptr;
   char *heartbeat_str_p = DISCORD_GATEWAY_HEARTBEAT;
   unsigned long msglen = strlen(heartbeat_str_p);
@@ -560,6 +563,7 @@ void *threaded_gateway_heartbeat(void *ptr) {
 }
 
 void *threaded_voice_gateway_heartbeat(void *ptr) {
+  pthread_detach(pthread_self());
   voice_gateway_t *voice = ptr;
   char *heartbeat_str_p = DISCORD_VOICE_HEARTBEAT;
   unsigned long msglen = strlen(heartbeat_str_p);

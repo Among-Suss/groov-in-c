@@ -28,11 +28,12 @@
 
 #include "media.h"
 
-//helpers from opusrtp.c
+#define MAX_URL_LEN 16384
+
+// helpers from opusrtp.c
 
 /* helper, write a little-endian 32 bit int to memory */
-void le32(unsigned char *p, int v)
-{
+void le32(unsigned char *p, int v) {
   p[0] = v & 0xff;
   p[1] = (v >> 8) & 0xff;
   p[2] = (v >> 16) & 0xff;
@@ -40,15 +41,13 @@ void le32(unsigned char *p, int v)
 }
 
 /* helper, write a little-endian 16 bit int to memory */
-void le16(unsigned char *p, int v)
-{
+void le16(unsigned char *p, int v) {
   p[0] = v & 0xff;
   p[1] = (v >> 8) & 0xff;
 }
 
 /* helper, write a big-endian 32 bit int to memory */
-void be32(unsigned char *p, int v)
-{
+void be32(unsigned char *p, int v) {
   p[0] = (v >> 24) & 0xff;
   p[1] = (v >> 16) & 0xff;
   p[2] = (v >> 8) & 0xff;
@@ -56,15 +55,13 @@ void be32(unsigned char *p, int v)
 }
 
 /* helper, write a big-endian 16 bit int to memory */
-void be16(unsigned char *p, int v)
-{
+void be16(unsigned char *p, int v) {
   p[0] = (v >> 8) & 0xff;
   p[1] = v & 0xff;
 }
 
 /* check if an ogg page begins an opus stream */
-int is_opus(ogg_page *og)
-{
+int is_opus(ogg_page *og) {
   ogg_stream_state os;
   ogg_packet op;
 
@@ -80,8 +77,7 @@ int is_opus(ogg_page *og)
   return 0;
 }
 
-int serialize_rtp_header(unsigned char *packet, int size, rtp_header *rtp)
-{
+int serialize_rtp_header(unsigned char *packet, int size, rtp_header *rtp) {
   int i;
 
   if (!packet || !rtp) {
@@ -95,56 +91,49 @@ int serialize_rtp_header(unsigned char *packet, int size, rtp_header *rtp)
     fprintf(stderr, "Packet buffer too short for declared RTP header size\n");
     return -3;
   }
-  packet[0] = ((rtp->version & 3) << 6) |
-              ((rtp->pad & 1) << 5) |
-              ((rtp->ext & 1) << 4) |
-              ((rtp->cc & 7));
-  packet[1] = ((rtp->mark & 1) << 7) |
-              ((rtp->type & 127));
-  be16(packet+2, rtp->seq);
-  be32(packet+4, rtp->time);
-  be32(packet+8, rtp->ssrc);
+  packet[0] = ((rtp->version & 3) << 6) | ((rtp->pad & 1) << 5) |
+              ((rtp->ext & 1) << 4) | ((rtp->cc & 7));
+  packet[1] = ((rtp->mark & 1) << 7) | ((rtp->type & 127));
+  be16(packet + 2, rtp->seq);
+  be32(packet + 4, rtp->time);
+  be32(packet + 8, rtp->ssrc);
   if (rtp->cc && rtp->csrc) {
     for (i = 0; i < rtp->cc; i++) {
-      be32(packet + 12 + i*4, rtp->csrc[i]);
+      be32(packet + 12 + i * 4, rtp->csrc[i]);
     }
   }
 
   return 0;
 }
 
-int update_rtp_header(rtp_header *rtp)
-{
+int update_rtp_header(rtp_header *rtp) {
   rtp->header_size = 12 + 4 * rtp->cc;
   return 0;
 }
 
-//end....
+// end....
 
-
-
-
-//TIME SLOT WAITER FUNCTIONS
+// TIME SLOT WAITER FUNCTIONS
 
 typedef struct {
-# if defined HAVE_MACH_ABSOLUTE_TIME
+#if defined HAVE_MACH_ABSOLUTE_TIME
   /* Apple */
   mach_timebase_info_data_t tbinfo;
   uint64_t target;
-# elif defined HAVE_CLOCK_GETTIME && defined CLOCK_REALTIME && \
-       defined HAVE_NANOSLEEP
+#elif defined HAVE_CLOCK_GETTIME && defined CLOCK_REALTIME &&                  \
+    defined HAVE_NANOSLEEP
   /* try to use POSIX monotonic clock */
   int initialized;
   clockid_t clock_id;
   struct timespec target;
-# else
+#else
   /* fall back to the old non-monotonic gettimeofday() */
   int initialized;
   struct timeval target;
-# endif
+#endif
 } time_slot_wait_t;
 
-void init_time_slot_wait(time_slot_wait_t *pt){
+void init_time_slot_wait(time_slot_wait_t *pt) {
   memset(pt, 0, sizeof(time_slot_wait_t));
 }
 
@@ -153,36 +142,37 @@ void init_time_slot_wait(time_slot_wait_t *pt){
  * start of the previous time slot, or in the case of the first call at
  * the time of the call.  delta must be in the range 0..999999999.
  */
-void wait_for_time_slot(int delta, time_slot_wait_t *state)
-{
-# if defined HAVE_MACH_ABSOLUTE_TIME
+void wait_for_time_slot(int delta, time_slot_wait_t *state) {
+#if defined HAVE_MACH_ABSOLUTE_TIME
   /* Apple */
 
   if (state->tbinfo.numer == 0) {
     mach_timebase_info(&(state->tbinfo));
     state->target = mach_absolute_time();
   } else {
-    state->target += state->tbinfo.numer == state->tbinfo.denom
-      ? (uint64_t)delta : (uint64_t)delta * state->tbinfo.denom / state->tbinfo.numer;
+    state->target +=
+        state->tbinfo.numer == state->tbinfo.denom
+            ? (uint64_t)delta
+            : (uint64_t)delta * state->tbinfo.denom / state->tbinfo.numer;
     mach_wait_until(state->target);
   }
-# elif defined HAVE_CLOCK_GETTIME && defined CLOCK_REALTIME && \
-       defined HAVE_NANOSLEEP
+#elif defined HAVE_CLOCK_GETTIME && defined CLOCK_REALTIME &&                  \
+    defined HAVE_NANOSLEEP
   /* try to use POSIX monotonic clock */
 
   if (!state->initialized) {
-#  if defined CLOCK_MONOTONIC && \
-      defined _POSIX_MONOTONIC_CLOCK && _POSIX_MONOTONIC_CLOCK >= 0
+#if defined CLOCK_MONOTONIC && defined _POSIX_MONOTONIC_CLOCK &&               \
+    _POSIX_MONOTONIC_CLOCK >= 0
     if (
-#   if _POSIX_MONOTONIC_CLOCK == 0
+#if _POSIX_MONOTONIC_CLOCK == 0
         sysconf(_SC_MONOTONIC_CLOCK) > 0 &&
-#   endif
+#endif
         clock_gettime(CLOCK_MONOTONIC, &state->target) == 0) {
       state->clock_id = CLOCK_MONOTONIC;
       state->initialized = 1;
     } else
-#  endif
-    if (clock_gettime(CLOCK_REALTIME, &state->target) == 0) {
+#endif
+        if (clock_gettime(CLOCK_REALTIME, &state->target) == 0) {
       state->clock_id = CLOCK_REALTIME;
       state->initialized = 1;
     }
@@ -192,10 +182,10 @@ void wait_for_time_slot(int delta, time_slot_wait_t *state)
       ++state->target.tv_sec;
       state->target.tv_nsec -= 1000000000;
     }
-#  if defined HAVE_CLOCK_NANOSLEEP && \
-      defined _POSIX_CLOCK_SELECTION && _POSIX_CLOCK_SELECTION > 0
+#if defined HAVE_CLOCK_NANOSLEEP && defined _POSIX_CLOCK_SELECTION &&          \
+    _POSIX_CLOCK_SELECTION > 0
     clock_nanosleep(state->clock_id, TIMER_ABSTIME, &state->target, NULL);
-#  else
+#else
     {
       /* convert to relative time */
       struct timespec rel;
@@ -211,9 +201,9 @@ void wait_for_time_slot(int delta, time_slot_wait_t *state)
         }
       }
     }
-#  endif
+#endif
   }
-# else
+#else
   /* fall back to the old non-monotonic gettimeofday() */
   struct timeval now;
   int nap;
@@ -232,79 +222,78 @@ void wait_for_time_slot(int delta, time_slot_wait_t *state)
     gettimeofday(&now, NULL);
     nap = state->target.tv_usec - now.tv_usec;
     if (now.tv_sec != state->target.tv_sec) {
-      if (now.tv_sec > state->target.tv_sec) nap = 0;
-      else if (state->target.tv_sec - now.tv_sec == 1) nap += 1000000;
-      else nap = 1000000;
+      if (now.tv_sec > state->target.tv_sec)
+        nap = 0;
+      else if (state->target.tv_sec - now.tv_sec == 1)
+        nap += 1000000;
+      else
+        nap = 1000000;
     }
-    if (nap > delta) nap = delta;
+    if (nap > delta)
+      nap = delta;
     if (nap > 0) {
-#  if defined HAVE_USLEEP
+#if defined HAVE_USLEEP
       usleep(nap);
-#  else
+#else
       struct timeval timeout;
       timeout.tv_sec = 0;
       timeout.tv_usec = nap;
       select(0, NULL, NULL, NULL, &timeout);
-#  endif
+#endif
     }
   }
-# endif
+#endif
 }
 
 int send_rtp_packet(int fd, struct sockaddr *addr, socklen_t addrlen,
-    rtp_header *rtp, const unsigned char *opus_packet, char *key)
-{
-  //unsigned char *packet, *opus_encrypted_pack; //DANGEROUS
+                    rtp_header *rtp, const unsigned char *opus_packet,
+                    unsigned char *key) {
+  // unsigned char *packet, *opus_encrypted_pack; //DANGEROUS
   int ret;
-  char packet[65535];
+  unsigned char packet[65535];
 
   update_rtp_header(rtp);
-  //packet = malloc(rtp->header_size + rtp->payload_size + crypto_secretbox_MACBYTES); //DANGEROUS
-  if (!packet) {
-    fprintf(stderr, "Couldn't allocate packet buffer\n");
-    return -1;
-  }
   serialize_rtp_header(packet, rtp->header_size, rtp);
 
-
-  //ENCRYPT HERE ___ENCRYPT OPUS PACKET___opus_packet
-  char nonce[24];
+  // ENCRYPT HERE ___ENCRYPT OPUS PACKET___opus_packet
+  unsigned char nonce[24];
   memcpy(nonce, packet, 12);
   memset(nonce + 12, 0, 12);
 
-  //opus_encrypted_pack = malloc(rtp->payload_size + crypto_secretbox_MACBYTES); //DANGEROUS
-  crypto_secretbox_easy(packet + rtp->header_size, opus_packet, rtp->payload_size, nonce, key);
+  // opus_encrypted_pack = malloc(rtp->payload_size +
+  // crypto_secretbox_MACBYTES); //DANGEROUS
+  crypto_secretbox_easy(packet + rtp->header_size, opus_packet,
+                        rtp->payload_size, nonce, key);
 
+  ret = sendto(fd, packet,
+               rtp->header_size + rtp->payload_size + crypto_secretbox_MACBYTES,
+               0, addr, addrlen);
 
-  ret = sendto(fd, packet, 
-      rtp->header_size + rtp->payload_size + crypto_secretbox_MACBYTES, 
-      0,addr, addrlen);
-
-  //DANGEROUS////////////
+  // DANGEROUS////////////
 
   char buffer[100000];
   struct sockaddr_storage src_addr;
-  socklen_t src_addr_len=sizeof(src_addr);
+  socklen_t src_addr_len = sizeof(src_addr);
   int cnt = 0;
-  //cnt = recvfrom(fd,buffer,sizeof(buffer),0,(struct sockaddr*)&src_addr,&src_addr_len);
+  // cnt = recvfrom(fd,buffer,sizeof(buffer),0,(struct
+  // sockaddr*)&src_addr,&src_addr_len);
 
-  //fprintf(stderr, "RECEIVED:::::::%d\n", cnt);
+  // fprintf(stderr, "RECEIVED:::::::%d\n", cnt);
   ///////////////////////
 
   if (ret < 0) {
     fprintf(stderr, "error sending: %s\n", strerror(errno));
   }
-  //free(packet);  //DANGEROUS
-  //free(opus_encrypted_pack);   //DANGEROUS
+  // free(packet);  //DANGEROUS
+  // free(opus_encrypted_pack);   //DANGEROUS
 
   return ret;
 }
 
-
 int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
-    socklen_t addrlen, int payload_type, char *key, int ssrc, 
-    int *running_state)
-{
+                          socklen_t addrlen, int payload_type,
+                          unsigned char *key, int ssrc,
+                          int *ffmpeg_running_state) {
   /* POSIX MONOTONIC CLOCK MEASURER */
   clockid_t clock_id;
   struct timespec start, start2, end;
@@ -330,19 +319,20 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
   const long in_size = 8192; //= 8192;
   size_t in_read;
 
-  //danger
+  // danger
   struct timeval read_timeout;
   read_timeout.tv_sec = 0;
   read_timeout.tv_usec = 10;
   ////////
 
   fd = socket(addr->sa_family, SOCK_DGRAM, IPPROTO_UDP);
-  //check for fd < 0 Couldn't create socket
+  // check for fd < 0 Couldn't create socket
   ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
-  //check ret < 0 Couldn't set socket options
+  // check ret < 0 Couldn't set socket options
 
-  //DANGER
-  ret = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof(read_timeout));
+  // DANGER
+  ret = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout,
+                   sizeof(read_timeout));
   ////////
 
   rtp.version = 2;
@@ -360,30 +350,32 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
 
   fprintf(stderr, "Sending %s...\n", filename);
   in_fd = open(filename, O_RDONLY, 0644);
-  //check !in Couldn't open input file
-  
-  ret = ogg_sync_init(&oy);
-  //check ret < 0 Couldn't initialize Ogg sync state
+  // check !in Couldn't open input file
 
-  while ((read_test_len = read(in_fd, &dummy_char, 1)) || *running_state) {
-    if(read_test_len == 1){
+  ret = ogg_sync_init(&oy);
+  // check ret < 0 Couldn't initialize Ogg sync state
+
+  while ((read_test_len = read(in_fd, &dummy_char, 1)) ||
+         *ffmpeg_running_state) {
+
+    if (read_test_len == 1) {
       lseek(in_fd, -1, SEEK_CUR);
     }
 
-    //printf("eof: %d\n", !read_test_len);
+    // printf("eof: %d\n", !read_test_len);
     in_data = ogg_sync_buffer(&oy, in_size);
-    //check !in_data ogg_sync_buffer failed
+    // check !in_data ogg_sync_buffer failed
 
     in_read = read(in_fd, in_data, in_size);
     ret = ogg_sync_wrote(&oy, in_read);
-    //check ret < 0 ogg_sync_wrote failed
+    // check ret < 0 ogg_sync_wrote failed
 
     while (ogg_sync_pageout(&oy, &og) == 1) {
       if (headers == 0) {
         if (is_opus(&og)) {
           /* this is the start of an Opus stream */
           ret = ogg_stream_init(&os, ogg_page_serialno(&og));
-          //check ret < 0 ogg_stream_init failed
+          // check ret < 0 ogg_stream_init failed
           headers++;
         } else if (!ogg_page_bos(&og)) {
           /* We're past the header and haven't found an Opus stream.
@@ -397,17 +389,19 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
       }
       /* submit the page for packetization */
       ret = ogg_stream_pagein(&os, &og);
-      //check ret < 0 ogg_stream_pagein failed
-      
+      // check ret < 0 ogg_stream_pagein failed
+
       /* read and process available packets */
-      while (ogg_stream_packetout(&os,&op) == 1) {
+      while (ogg_stream_packetout(&os, &op) == 1) {
         int samples;
         /* skip header packets */
-        if (headers == 1 && op.bytes >= 19 && !memcmp(op.packet, "OpusHead", 8)) {
+        if (headers == 1 && op.bytes >= 19 &&
+            !memcmp(op.packet, "OpusHead", 8)) {
           headers++;
           continue;
         }
-        if (headers == 2 && op.bytes >= 16 && !memcmp(op.packet, "OpusTags", 8)) {
+        if (headers == 2 && op.bytes >= 16 &&
+            !memcmp(op.packet, "OpusTags", 8)) {
           headers++;
           continue;
         }
@@ -421,37 +415,44 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
         rtp.seq++;
         rtp.time += samples;
         rtp.payload_size = op.bytes;
-        //fprintf(stderr, "rtp %d %d %d %3d ms %5d bytes\n",
+        // fprintf(stderr, "rtp %d %d %d %3d ms %5d bytes\n",
         //    rtp.type, rtp.seq, rtp.time, samples/48, rtp.payload_size);
         send_rtp_packet(fd, addr, addrlen, &rtp, op.packet, key);
 
-
         clock_gettime(clock_id, &end);
-        long secediff = (long int)end.tv_sec-start.tv_sec;
-        long usecdiff = (long)((end.tv_nsec - start.tv_nsec)/1000) + secediff * 1000000;
-        //fprintf(stderr, "Time elapsed: %ld, should be:%ld us", usecdiff, samples*125/6);
-        
-        if(usecdiff > 25000 || usecdiff < 15000){
-          fprintf(stderr, "WHOOPS...Abnormal Frame: ........................................................... %ld\n", usecdiff);
-        }/*else{
-          fprintf(stderr, "\n");
-        }*/
+        long secediff = (long int)end.tv_sec - start.tv_sec;
+        long usecdiff =
+            (long)((end.tv_nsec - start.tv_nsec) / 1000) + secediff * 1000000;
+        // fprintf(stderr, "Time elapsed: %ld, should be:%ld us", usecdiff,
+        // samples*125/6);
+
+        if (usecdiff > 25000 || usecdiff < 15000) {
+          fprintf(stderr,
+                  "WHOOPS...Abnormal Frame: "
+                  "........................................................... "
+                  "%ld\n",
+                  usecdiff);
+        } /*else{
+           fprintf(stderr, "\n");
+         }*/
         start = end;
 
-
-        long target = samples*62500/3;
+        long target = samples * 62500 / 3;
 
         long lastnsdiff = usecdiff * 1000;
         long deviation = lastnsdiff - target;
-        if(!last_frame_corrected && ((deviation > 5000000 && deviation < 15000000) || (deviation < -5000000 && deviation > -15000000))){
+        if (!last_frame_corrected &&
+            ((deviation > 5000000 && deviation < 15000000) ||
+             (deviation < -5000000 && deviation > -15000000))) {
           target = target - deviation;
           last_frame_corrected = 1;
-        }else{
+        } else {
           last_frame_corrected = 0;
         }
 
-        //long secdiff2 = end.tv_sec - start2.tv_sec;
-        //long nsecdiff = end.tv_nsec - start2.tv_nsec + (secdiff2 * 1000000000);
+        // long secdiff2 = end.tv_sec - start2.tv_sec;
+        // long nsecdiff = end.tv_nsec - start2.tv_nsec + (secdiff2 *
+        // 1000000000);
         /*
         while (nsecdiff < target){
 
@@ -462,12 +463,12 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
           nsecdiff = end.tv_nsec - start2.tv_nsec + (secdiff2 * 1000000000);
         }
         */
-        //fprintf(stderr, "raw time: %ld\n", nsecdiff);
+        // fprintf(stderr, "raw time: %ld\n", nsecdiff);
 
         /* convert number of 48 kHz samples to nanoseconds without overflow */
-        wait_for_time_slot(samples*62500/3, &state);
+        wait_for_time_slot(samples * 62500 / 3, &state);
 
-        //clock_gettime(clock_id, &start2);
+        // clock_gettime(clock_id, &start2);
       }
     }
   }
@@ -479,11 +480,9 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
   return 0;
 }
 
-
-
 int rtp_send_file(const char *filename, const char *dest, const char *port,
-        int payload_type, char *key, int ssrc, int *running_state)
-{
+                  int payload_type, unsigned char *key, int ssrc,
+                  int *ffmpeg_running_state) {
   int ret;
   struct addrinfo *addrs;
   struct addrinfo hints;
@@ -495,53 +494,164 @@ int rtp_send_file(const char *filename, const char *dest, const char *port,
   hints.ai_protocol = IPPROTO_UDP;
   ret = getaddrinfo(dest, port, &hints, &addrs);
   if (ret != 0 || !addrs) {
-    fprintf(stderr, "Cannot resolve host %s port %s: %s\n",
-      dest, port, gai_strerror(ret));
+    fprintf(stderr, "Cannot resolve host %s port %s: %s\n", dest, port,
+            gai_strerror(ret));
     return -1;
   }
   ret = rtp_send_file_to_addr(filename, addrs->ai_addr, addrs->ai_addrlen,
-    payload_type, key, ssrc, running_state);
+                              payload_type, key, ssrc, ffmpeg_running_state);
   freeaddrinfo(addrs);
   return ret;
 }
 
+void get_youtube_audio_url(char *video_id, char *url) {
+  int pipeids[2];
 
+  if (video_id == NULL) {
+    printf("Error: Please provide a video ID...\n");
+    exit(-1);
+  }
 
-void getYoutubeAudioUrl(char *video_id, char *url){
-    int pipeids[2];
-    
-    if(video_id == NULL){
-        printf("Error: Please provide a video ID...\n");
-        exit(-1);
+  pipe(pipeids);
+
+  pid_t pid;
+  if ((pid = fork()) == 0) {
+    close(pipeids[0]);
+    dup2(pipeids[1], STDOUT_FILENO);
+
+    char *argv[10];
+    argv[0] = "youtube-dl";
+    argv[1] = "-g";
+    argv[2] = "-f";
+    argv[3] = "bestaudio[ext=m4a]";
+    argv[4] = video_id;
+    argv[5] = 0;
+
+    execvp(argv[0], argv);
+  }
+  close(pipeids[1]);
+  char str[MAX_URL_LEN];
+  int len = read(pipeids[0], str, MAX_URL_LEN);
+  str[len] = 0;
+  close(pipeids[0]);
+  waitpid(pid, NULL, 0);
+
+  char *urlendp = strstr(str, "\n");
+  *urlendp = 0;
+  strcpy(url, str);
+
+  printf("AUDIO URL: %s\n\n", url);
+}
+
+void *ffmpeg_process_waiter(void *ptr) {
+  pthread_detach(pthread_self());
+  ffmpeg_process_waiter_t *fptr = (ffmpeg_process_waiter_t *)ptr;
+  pid_t pid = fptr->pid;
+  int *ffmpeg_process_state = fptr->ffmpeg_process_state;
+  free(ptr);
+
+  while (waitpid(pid, NULL, 0) < 0)
+    ;
+
+  *ffmpeg_process_state = 0;
+
+  return NULL;
+}
+
+void play_youtube_url(char *youtube_link, char *key_str, char *ssrc_str,
+                      char *dest_address, char *dest_port,
+                      char *cache_file_unique_name) {
+  char url[MAX_URL_LEN];
+
+  int fd = open(cache_file_unique_name, O_CREAT | O_RDWR | O_TRUNC, 0644);
+  close(fd);
+
+  get_youtube_audio_url(youtube_link, url);
+
+  pid_t pid;
+  if ((pid = fork()) == 0) {
+    char *new_argv[50] = {"ffmpeg",
+                          "-ss",
+                          "00:00:00.00",
+                          "-i",
+                          url,
+                          "-c:a",
+                          "libopus",
+                          "-b:a",
+                          "64k",
+                          "-vbr",
+                          "off",
+                          "-compression_level",
+                          "10",
+                          "-frame_duration",
+                          "20",
+                          "-application",
+                          "audio",
+                          "-f",
+                          "opus",
+                          "-y",
+                          cache_file_unique_name,
+                          0};
+
+    if (execvp(new_argv[0], new_argv) < 0) {
+      printf("UNIX EXECVE ERROR\n");
+      exit(1);
     }
+  }
 
-    pipe(pipeids);
+  int ffmpeg_process_state_value = 1;
+  ffmpeg_process_waiter_t *fptr = malloc(sizeof(ffmpeg_process_waiter_t));
 
-    pid_t pid;
-    if((pid = Fork()) == 0){
-        Close(pipeids[0]);
-        Dup2(pipeids[1], STDOUT_FILENO);
+  fptr->pid = pid;
+  fptr->ffmpeg_process_state = &ffmpeg_process_state_value;
 
-        char *argv[10];
-        argv[0] = "youtube-dl";
-        argv[1] = "-g";
-        argv[2] = "-f";
-        argv[3] = "bestaudio[ext=m4a]";
-        argv[4] = video_id;
-        argv[5] = 0;
+  pthread_t tid;
+  pthread_create(&tid, NULL, ffmpeg_process_waiter, fptr);
 
-        execvp(argv[0], argv);
-    }
-    Close(pipeids[1]);
-    char str[MAX_URL_LEN];
-    int len = read(pipeids[0], str, MAX_URL_LEN);
-    str[len] = 0;
-    Close(pipeids[0]);
-    Waitpid(pid, NULL, 0);
+  unsigned char diskey[32];
+  char *end;
 
-    char *urlendp = strstr(str, "\n");
-    *urlendp = 0;
-    strcpy(url, str);
+  int i = 0;
+  while ((end = strchr(key_str, ','))) {
+    *end = 0;
+    diskey[i] = atoi(key_str);
+    key_str = end + 1;
+    i++;
+  }
+  diskey[31] = atoi(key_str);
 
-    printf("AUDIO URL: %s\n\n", url);
+  int ssrc = atoi(ssrc_str);
+
+  rtp_send_file(cache_file_unique_name, dest_address, dest_port, 120, diskey,
+                ssrc, &ffmpeg_process_state_value);
+}
+
+void *play_yt_threaded(void *ptr) {
+  pthread_detach(pthread_self());
+  youtube_player_t *yptr = (youtube_player_t *)ptr;
+
+  play_youtube_url(yptr->youtube_link, yptr->key_str, yptr->ssrc_str,
+                   yptr->dest_address, yptr->dest_port,
+                   yptr->cache_file_unique_name);
+
+  free(ptr);
+
+  return NULL;
+}
+
+void play_youtube_in_thread(char *youtube_link, char *key_str, char *ssrc_str,
+                            char *dest_address, char *dest_port,
+                            char *cache_file_unique_name) {
+
+  youtube_player_t *yptr = malloc(sizeof(youtube_player_t));
+
+  yptr->youtube_link = youtube_link;
+  yptr->key_str = key_str;
+  yptr->ssrc_str = ssrc_str;
+  yptr->dest_address = dest_address;
+  yptr->dest_port = dest_port;
+  yptr->cache_file_unique_name = cache_file_unique_name;
+
+  pthread_t tid;
+  pthread_create(&tid, NULL, play_yt_threaded, yptr);
 }
