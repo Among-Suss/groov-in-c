@@ -387,6 +387,7 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
           /* We're past the header and haven't found an Opus stream.
            * Time to give up. */
           close(in_fd);
+          close(fd);
           return 1;
         } else {
           /* try again */
@@ -483,6 +484,7 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
     ogg_stream_clear(&os);
   ogg_sync_clear(&oy);
   close(in_fd);
+  close(fd);
   return 0;
 }
 
@@ -607,7 +609,7 @@ void play_youtube_url(char *youtube_link, char *key_str, char *ssrc_str,
 
                           "-flush_packets",
                           "1",
-                          
+
                           "-y",
                           cache_file_unique_name,
                           0};
@@ -643,6 +645,8 @@ void play_youtube_url(char *youtube_link, char *key_str, char *ssrc_str,
 
   rtp_send_file(cache_file_unique_name, dest_address, dest_port, 120, diskey,
                 ssrc, &ffmpeg_process_state_value);
+
+  remove(cache_file_unique_name);
 }
 
 void *play_yt_threaded(void *ptr) {
