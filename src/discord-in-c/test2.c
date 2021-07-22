@@ -12,7 +12,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   discord_t *dis = state;
 
   write(STDOUT_FILENO, msg, msg_len);
-  write(STDOUT_FILENO, "\n", 1);
+  write(STDOUT_FILENO, "WOW WOW WOW\n", strlen("WOW WOW WOW\n"));
 
   if (strcasestr(msg, "MESSAGE_CREATE")) {
     char *content = strcasestr(msg, "content") + 10;
@@ -26,7 +26,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       content += 3;
 
       voice_gateway_t *vgt;
-      sm_get(dis->voice_gateway_map, "807911659078680576", (char *)&vgt,
+      sm_get(dis->voice_gateway_map, "740311902743167118", (char *)&vgt,
              sizeof(void *));
       //printf("%d\n", vgt);
       send_websocket(
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
   set_gateway_callback(discord, actually_do_shit);
   connect_gateway(discord, "643");
 
-  connect_voice_gateway(discord, "807911659078680576", "857087599557607466",
+  connect_voice_gateway(discord, "740311902743167118", "759470991419899955",
                         on_message);
 
   while (1)

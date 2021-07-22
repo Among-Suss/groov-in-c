@@ -132,26 +132,29 @@ unsigned long get_http_content_length(char *header, unsigned long len){
  *  Receives websocket message:
  *  1. Reads websocket header and get content length and message fin
  *  2. Reads websocket payload into a buffer
- *  3. copy into the buffer and write the actual size written into buffer
+ *  3. write the actual size written into read_len
+ * 
+ *  Return a pointer to a dynamically allocated buffer.
+ *  Needs to be freed by caller function.
  *
  */
-int simple_receive_websocket(SSL *ssl, char *read_buffer,
-                             unsigned long buffer_len, unsigned long *read_len,
+char* simple_receive_websocket(SSL *ssl, unsigned long *read_len,
                              int *msg_fin) {
-  unsigned long len, content_len, readlen, total_read_bytes = 0, copied_len;
+  unsigned long len, content_len, readlen, total_read_bytes;
   char *buf;
   int retval;
 
   retval = read_websocket_header(ssl, &content_len, msg_fin);
   if (retval < 0) {
     printf("ERROR: not websocket...");
-    return -1;
+    return NULL;
   }
 
-  buf = malloc(content_len);
+  buf = malloc(content_len + 1);
   readlen = content_len;
+  total_read_bytes = 0;
   do {
-    len = SSL_read(ssl, buf, readlen);
+    len = SSL_read(ssl, buf + total_read_bytes, readlen);
     total_read_bytes += len;
     readlen -= len;
   } while (len > 0 && total_read_bytes < content_len);
@@ -159,15 +162,12 @@ int simple_receive_websocket(SSL *ssl, char *read_buffer,
   if (len == 0) {
     printf("connection closed!");
     free(buf);
-    return -2;
+    return NULL;
   }
 
-  copied_len = MACRO_MIN(content_len, buffer_len);
-  memcpy(read_buffer, buf, copied_len);
-  *read_len = copied_len;
+  *read_len = content_len;
 
-  free(buf);
-  return 1;
+  return buf;
 }
 
 /*
@@ -393,15 +393,17 @@ void *threaded_receive_websock(void *ptr) {
   callback_t callback_data = *((callback_t *)ptr);
   free(ptr);
 
-  char buffer[WEBSOCKET_PAYLOAD_BUFFER_LENGTH];
+  char *buffer;
   unsigned long readlen;
   int msgfin;
 
   int run = 1;
   while (run >= 0){
-    run = simple_receive_websocket(callback_data.ssl, buffer,
-                WEBSOCKET_PAYLOAD_BUFFER_LENGTH-1, &readlen, &msgfin);
-    (callback_data.callback)(callback_data.ssl, callback_data.state, buffer, readlen);
+    buffer = simple_receive_websocket(callback_data.ssl, &readlen, &msgfin);
+    if(buffer){
+      (callback_data.callback)(callback_data.ssl, callback_data.state, buffer, readlen);
+      free(buffer);
+    }
   }
 
   return NULL;

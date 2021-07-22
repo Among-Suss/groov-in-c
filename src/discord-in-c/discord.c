@@ -223,11 +223,15 @@ void internal_gateway_callback(SSL *ssl, void *state, char *msg,
   msg[msg_len] = 0;
   if (strcasestr(msg, DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE) &&
       !discord->heartbeating) {
+    write(STDOUT_FILENO, msg, msg_len);
+    write(STDOUT_FILENO, "\n", 1);
     start_heartbeat_gateway(discord, msg);
     return;
   }
 
   if (strcasestr(msg, DISCORD_GATEWAY_READY)) {
+    write(STDOUT_FILENO, msg, msg_len);
+    write(STDOUT_FILENO, "\n", 1);
     gateway_ready(discord, msg);
     return;
   }
@@ -354,6 +358,8 @@ void collect_secret_key(voice_gateway_t *voice, char *msg) {
 void internal_voice_gateway_callback(SSL *ssl, void *state, char *msg,
                                      unsigned long msg_len) {
   voice_gateway_t *voice = state;
+  msg[msg_len] = 0;
+
   if (strcasestr(msg, DISCORD_GATEWAY_HEARTBEAT_INTERVAL) &&
       !voice->heartbeating) {
     write(STDOUT_FILENO, msg, msg_len);
@@ -391,11 +397,11 @@ void authenticate_voice_gateway(voice_gateway_t *voice, char *guild_id,
   sem_post(&(voice->voice_writer_mutex));
 }
 
-void connect_voice_udp(voice_gateway_t *voice) {
+void connect_voice_udp(voice_gateway_t *voice, char *ip, char *port) {
   char buf[DISCORD_MAX_MSG_LEN];
 
   snprintf(buf, DISCORD_MAX_MSG_LEN, DISCORD_VOICE_ESTABLISH_UDP,
-           DISCORD_VOICE_UDP_IP_DEFAULT, DISCORD_VOICE_UDP_PORT_DEFAULT,
+           ip, port,
            DISCORD_VOICE_UDP_ENC_DEFAULT);
 
   sem_wait(&(voice->voice_writer_mutex));
@@ -403,7 +409,7 @@ void connect_voice_udp(voice_gateway_t *voice) {
   sem_post(&(voice->voice_writer_mutex));
 }
 
-int udp_hole_punch(voice_gateway_t *vgt){
+char* udp_hole_punch(voice_gateway_t *vgt){
   char ip[100];
   char port[100];
 
@@ -425,7 +431,7 @@ int udp_hole_punch(voice_gateway_t *vgt){
   if (ret != 0 || !addrs) {
     fprintf(stderr, "Cannot resolve host %s port %s: %s\n",
       ip, port, gai_strerror(ret));
-    return -1;
+    return NULL;
   }
 
   fd = socket(addrs->ai_addr->sa_family, SOCK_DGRAM, IPPROTO_UDP);
@@ -446,12 +452,14 @@ int udp_hole_punch(voice_gateway_t *vgt){
 
   ret = sendto(fd, packet, 74, 0,addrs->ai_addr, addrs->ai_addrlen);
 
-  char buffer[1000];
+  char *buffer = malloc(DISCORD_MAX_MSG_LEN);
+  const int sizeofbuffer = DISCORD_MAX_MSG_LEN;
+
   struct sockaddr_storage src_addr;
   socklen_t src_addr_len=sizeof(src_addr);
 
   int cnt = 0;
-  cnt = recvfrom(fd,buffer,sizeof(buffer),0,(struct sockaddr*)&src_addr,&src_addr_len);
+  cnt = recvfrom(fd,buffer,sizeofbuffer,0,(struct sockaddr*)&src_addr,&src_addr_len);
   for(int i = 0; i < cnt; i++){
     printf("%x ", buffer[i]);
   }
@@ -460,7 +468,7 @@ int udp_hole_punch(voice_gateway_t *vgt){
   close(fd);
   freeaddrinfo(addrs);
 
-  return 0;
+  return buffer;
 }
 
 void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
@@ -525,9 +533,21 @@ void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
   authenticate_voice_gateway(vgt, guild_id, botuid, sessionid, token);
   sem_wait(&(vgt->stream_ready));
 
-  //udp_hole_punch(vgt);
+  char *ipdiscovery = udp_hole_punch(vgt);
+  char *ipaddr = ipdiscovery + 8;
 
-  connect_voice_udp(vgt);
+  unsigned short portdis;
+  char *portdisptr = (char *) &portdis;
+
+  portdisptr[0] = *(ipaddr + 65);
+  portdisptr[1] = *(ipaddr + 64);
+
+  fprintf(stdout, "\n\n%d\n%s\n", portdis, ipaddr);
+
+  char portstr[100];
+  snprintf(portstr, 100, "%d", portdis);
+
+  connect_voice_udp(vgt, ipaddr, portstr);
   sem_wait(&(vgt->voice_key_ready));
 
   free(msg);

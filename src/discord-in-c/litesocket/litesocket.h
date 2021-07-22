@@ -36,8 +36,7 @@ int read_http_header(SSL *ssl, char *headerbuf, unsigned long buffer_len,
                      unsigned long *read_len);
 unsigned long get_http_content_length(char *header, unsigned long len);
 int read_websocket_header(SSL *ssl, unsigned long *msg_len, int *msg_fin);
-int simple_receive_websocket(SSL *ssl, char *read_buffer,
-                             unsigned long buffer_len, unsigned long *read_len,
+char* simple_receive_websocket(SSL *ssl, unsigned long *read_len,
                              int *msg_fin);
 int send_websocket(SSL *ssl, char *msg, unsigned long msglen, int opcode);
 int send_raw(SSL *ssl, char *data, unsigned long len);

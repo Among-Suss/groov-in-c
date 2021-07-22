@@ -28,6 +28,7 @@
 #include <ogg/ogg.h>
 
 #include "../../config.h"
+#include "sbuf.h"
 
 //defines from opusrtp.c
 #define RTP_HEADER_MIN 12
@@ -55,5 +56,15 @@ typedef struct {
     char *dest_port;
     char *cache_file_unique_name;
 } youtube_player_t;
+
+typedef struct {
+  int udp_file_discriptor;
+  
+  struct sbuf_t song_queue;
+  pid_t ffmpeg_process_id;
+  pthread_t player_thread_id;
+  
+
+} media_player_t;
 
 void play_youtube_in_thread(char *youtube_link, char *key_str, char *ssrc_str, char *dest_address, char *dest_port, char *cache_file_unique_name);
