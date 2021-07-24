@@ -307,6 +307,7 @@ SSL *ssl_reconnect(SSL *ssl, char *hostname, int hostname_len, char *port,
 SSL *establish_ssl_connection(char *hostname, int hostname_len, char *port,
                               int port_len) {
   int clientfd;
+  int errorval;
   struct addrinfo hints, *listp;
 
   memset(&hints, 0, sizeof(struct addrinfo));
@@ -314,7 +315,9 @@ SSL *establish_ssl_connection(char *hostname, int hostname_len, char *port,
   hints.ai_family = AF_INET;       // use ipv4
   hints.ai_flags = AI_NUMERICSERV; // numeric port
   hints.ai_flags |= AI_ADDRCONFIG; // use supported protocols
-  getaddrinfo(hostname, port, &hints, &listp);
+
+  if ((errorval = getaddrinfo(hostname, port, &hints, &listp)) != 0)
+    fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(errorval));
 
   if ((clientfd = socket(listp->ai_family, listp->ai_socktype,
                          listp->ai_protocol)) < 0) {

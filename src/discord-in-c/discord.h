@@ -103,11 +103,12 @@ typedef struct {
   sem_t voice_key_ready;
   StrMap *data_dictionary;
   unsigned char voice_encryption_key[32];
+  int voice_udp_sockfd;
 } voice_gateway_t;
 
 discord_t *init_discord(char *bot_token);
 void free_discord(discord_t *discord);
 void connect_gateway(discord_t *discord_data, char *discord_intent);
 void set_gateway_callback(discord_t *discord, usercallback_f gateway_callback);
-void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
+voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
                            usercallback_f voice_callback);

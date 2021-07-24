@@ -409,7 +409,8 @@ void connect_voice_udp(voice_gateway_t *voice, char *ip, char *port) {
   sem_post(&(voice->voice_writer_mutex));
 }
 
-char* udp_hole_punch(voice_gateway_t *vgt){
+//returns a pointer that MUST BE FREED
+char* udp_hole_punch(voice_gateway_t *vgt, int *socketfd_retval){
   char ip[100];
   char port[100];
 
@@ -465,13 +466,13 @@ char* udp_hole_punch(voice_gateway_t *vgt){
   }
   printf("\n");
 
-  close(fd);
+  *socketfd_retval = fd;
   freeaddrinfo(addrs);
 
   return buffer;
 }
 
-void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
+voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
                            usercallback_f voice_callback) {
   int guild_id_len = strlen(guild_id);
   int channel_id_len = strlen(channel_id);
@@ -533,7 +534,11 @@ void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
   authenticate_voice_gateway(vgt, guild_id, botuid, sessionid, token);
   sem_wait(&(vgt->stream_ready));
 
-  char *ipdiscovery = udp_hole_punch(vgt);
+  int socketfd_udp;
+
+  char *ipdiscovery = udp_hole_punch(vgt, &socketfd_udp);
+  vgt->voice_udp_sockfd = socketfd_udp;
+
   char *ipaddr = ipdiscovery + 8;
 
   unsigned short portdis;
@@ -550,7 +555,10 @@ void connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
   connect_voice_udp(vgt, ipaddr, portstr);
   sem_wait(&(vgt->voice_key_ready));
 
+  free(ipdiscovery);
   free(msg);
+
+  return vgt;
 }
 
 //END OFVOICE GATEWAY HANDLER FUNCTIONS ------------------

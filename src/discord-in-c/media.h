@@ -49,22 +49,22 @@ typedef struct {
 } ffmpeg_process_waiter_t;
 
 typedef struct {
+  struct sbuf_t song_queue;
+} media_player_t;
+
+typedef struct {
     char *youtube_link;
     char *key_str;
     char *ssrc_str;
     char *dest_address;
     char *dest_port;
     char *cache_file_unique_name;
+    media_player_t *media_player_t_ptr;
+    int socketfd;
+    void *vgt;
 } youtube_player_t;
 
-typedef struct {
-  int udp_file_discriptor;
-  
-  struct sbuf_t song_queue;
-  pid_t ffmpeg_process_id;
-  pthread_t player_thread_id;
-  
-
-} media_player_t;
-
-void play_youtube_in_thread(char *youtube_link, char *key_str, char *ssrc_str, char *dest_address, char *dest_port, char *cache_file_unique_name);
+void play_youtube_in_thread(char *youtube_link, char *key_str, char *ssrc_str, char *dest_address, char *dest_port, int socketfd, char *cache_file_unique_name);
+media_player_t *start_player(char *key_str, char *ssrc_str,
+                            char *dest_address, char *dest_port, int socketfd,
+                            char *cache_file_unique_name, void *vgt);

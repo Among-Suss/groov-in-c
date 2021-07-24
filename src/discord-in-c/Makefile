@@ -1,7 +1,7 @@
 all: test2
 
 test2: test2.c media.c media.h discord.c discord.h strmap.c strmap.h
-	gcc -o test2 test2.c media.c media.h discord.c discord.h litesocket/litesocket.h litesocket/litesocket.c strmap.h strmap.c -g -Wall -Wextra -Wno-unused-parameter -pedantic -fsanitize=address -lpthread -lssl -lcrypto -lsodium -lopus -logg
+	gcc -o test2 test2.c media.c media.h discord.c discord.h litesocket/litesocket.h litesocket/litesocket.c strmap.h strmap.c sbuf.h sbuf.c -g -Wall -Wextra -Wno-unused-parameter -pedantic -fsanitize=address -lpthread -lssl -lcrypto -lsodium -lopus -logg
 
 
 format:
