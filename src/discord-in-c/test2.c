@@ -3,7 +3,7 @@
 #include "media.h"
 #include "discord.structs.h"
 #include "media.structs.h"
-
+#include "youtube/youtube-func.h"
 
 void on_message(void *state, char *msg, unsigned long msg_len) {
   write(STDOUT_FILENO, msg, msg_len);
@@ -18,6 +18,11 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
   write(STDOUT_FILENO, msg, msg_len);
   write(STDOUT_FILENO, "WOW WOW WOW\n", strlen("WOW WOW WOW\n"));
+
+  msg[msg_len] = 0;
+  while(*msg == ' '){
+    msg++;
+  }
 
   if (strcasestr(msg, "MESSAGE_CREATE")) {
     char *content = strcasestr(msg, "content") + 10;
@@ -70,7 +75,16 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       //counter1++;
 
       //play_youtube_in_thread(argv[5], argv[4], argv[3], argv[1], argv[2], vgt->voice_udp_sockfd, ufid);
-      sbuf_insert_front_value((&(media->song_queue)), content, strlen(content) + 1);
+
+      if(!strncasecmp(content, "https://", 8)){
+        sbuf_insert_front_value((&(media->song_queue)), content, strlen(content) + 1);
+      }else{
+        char token[YOUTUBE_TOKEN_SIZE];
+        search_youtube_for_link_token(content, token);
+        sbuf_insert_front_value((&(media->song_queue)), token, strlen(token) + 1);
+      }
+
+      
 
       /*
       if (fork() == 0) {
