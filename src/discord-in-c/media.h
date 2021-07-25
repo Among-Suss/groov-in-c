@@ -29,42 +29,16 @@
 
 #include "../../config.h"
 #include "sbuf.h"
+#include "litesocket/litesocket.h"
+#include "discord.h"
 
-//defines from opusrtp.c
-#define RTP_HEADER_MIN 12
-typedef struct {
-  int version;
-  int type;
-  int pad, ext, cc, mark;
-  int seq, time;
-  int ssrc;
-  int *csrc;
-  int header_size;
-  int payload_size;
-} rtp_header;
+typedef struct ffmpeg_process_waiter_t ffmpeg_process_waiter_t;
 
-typedef struct {
-    pid_t pid;
-    int *ffmpeg_process_state;
-} ffmpeg_process_waiter_t;
+typedef struct media_player_t media_player_t;
 
-typedef struct {
-  struct sbuf_t song_queue;
-} media_player_t;
-
-typedef struct {
-    char *youtube_link;
-    char *key_str;
-    char *ssrc_str;
-    char *dest_address;
-    char *dest_port;
-    char *cache_file_unique_name;
-    media_player_t *media_player_t_ptr;
-    int socketfd;
-    void *vgt;
-} youtube_player_t;
+typedef struct youtube_player_t youtube_player_t;
 
 void play_youtube_in_thread(char *youtube_link, char *key_str, char *ssrc_str, char *dest_address, char *dest_port, int socketfd, char *cache_file_unique_name);
 media_player_t *start_player(char *key_str, char *ssrc_str,
                             char *dest_address, char *dest_port, int socketfd,
-                            char *cache_file_unique_name, void *vgt);
+                            char *cache_file_unique_name, voice_gateway_t *vgt);

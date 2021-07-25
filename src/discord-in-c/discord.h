@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "litesocket/litesocket.h"
 #include "strmap.h"
 #include <semaphore.h>
@@ -72,39 +74,11 @@
 #define DISCORD_HEARTBEAT_MSG_KEY "heartbeat_msg"
 #define DISCORD_GUILD_ID "guild_id"
 
-struct discord_t;
-
 typedef void (*usercallback_f)(void *state, char *msg, unsigned long msg_len);
 
-typedef struct discord_t {
-  SSL *https_api_ssl;
-  SSL *gateway_ssl;
-  sem_t gateway_writer_mutex;
-  usercallback_f gateway_callback;
-  pthread_t gateway_listen_tid;
-  int heartbeating;
-  int heartbeat_interval_usec;
-  pthread_t heartbeat_tid;
-  StrMap *data_dictionary;
-  StrMap *voice_gateway_map;
-} discord_t;
+typedef struct discord_t discord_t;
 
-typedef struct {
-  SSL *voice_ssl;
-  usercallback_f voice_callback;
-  pthread_t voice_gate_listener_tid;
-  sem_t voice_writer_mutex;
-  int heartbeating;
-  int heartbeat_interval_usec;
-  pthread_t heartbeat_tid;
-  sem_t ready_state_update;
-  sem_t ready_server_update;
-  sem_t stream_ready;
-  sem_t voice_key_ready;
-  StrMap *data_dictionary;
-  unsigned char voice_encryption_key[32];
-  int voice_udp_sockfd;
-} voice_gateway_t;
+typedef struct voice_gateway_t voice_gateway_t;
 
 discord_t *init_discord(char *bot_token);
 void free_discord(discord_t *discord);

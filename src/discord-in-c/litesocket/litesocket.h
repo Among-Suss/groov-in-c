@@ -23,11 +23,7 @@
 
 typedef void (*callback_func_t)(SSL *ssl, void *state, char *msg, unsigned long msg_len);
 
-typedef struct {
-    callback_func_t callback;
-    SSL *ssl;
-    void *state;
-}callback_t;
+typedef struct callback_t callback_t;
 
 
 void init_openssl_2();

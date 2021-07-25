@@ -1,4 +1,6 @@
 #include "discord.h"
+#include "discord.structs.h"
+#include "litesocket/litesocket.structs.h"
 
 void authenticate_gateway(discord_t *discord, char *discord_intent);
 void internal_gateway_callback(SSL *ssl, void *state, char *msg,

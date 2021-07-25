@@ -1,5 +1,9 @@
+#include "sbuf.structs.h"
 #include "discord.h"
 #include "media.h"
+#include "discord.structs.h"
+#include "media.structs.h"
+
 
 void on_message(void *state, char *msg, unsigned long msg_len) {
   write(STDOUT_FILENO, msg, msg_len);
@@ -31,12 +35,14 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
              sizeof(void *));
       //printf("%d\n", vgt);
       // DANGEROUS
+      /*
       send_websocket(
           vgt->voice_ssl,
           "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
           strlen(
               "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
           1);
+      */
       //printf("TOUCH!\n");
 
       char *argv[7];

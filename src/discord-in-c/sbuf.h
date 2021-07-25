@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,22 +9,11 @@
 // sbuf package based on linked list
 
 //linked list node structure
-struct linked_node_t {
-  void *value;
-  int len;
-  struct linked_node_t *next;
-  struct linked_node_t *prev;
-};
+typedef struct linked_node_t linked_node_t;
 
 
 //sbuf object
-struct sbuf_t {
-  struct linked_node_t *front;
-  struct linked_node_t *back;
-  sem_t items;
-  sem_t mutex;
-  int size;
-};
+typedef struct sbuf_t sbuf_t;
 
 
 /* initialize sbuf package

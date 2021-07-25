@@ -1,4 +1,5 @@
 #include "sbuf.h"
+#include "sbuf.structs.h"
 
 // sbuf package based on linked list
 

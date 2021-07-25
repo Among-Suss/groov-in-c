@@ -26,12 +26,29 @@
    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "sbuf.structs.h"
 #include "media.h"
-#include "discord.h"
+#include "discord.structs.h"
+#include "media.structs.h"
+#include "litesocket/litesocket.structs.h"
 
-#define MAX_URL_LEN 16384
+
+#define MAX_URL_LEN_MEDIA 16384
 
 // helpers from opusrtp.c
+
+//defines from opusrtp.c
+#define RTP_HEADER_MIN 12
+typedef struct rtp_header{
+  int version;
+  int type;
+  int pad, ext, cc, mark;
+  int seq, time;
+  int ssrc;
+  int *csrc;
+  int header_size;
+  int payload_size;
+} rtp_header;
 
 /* helper, write a little-endian 32 bit int to memory */
 void le32(unsigned char *p, int v) {
@@ -541,8 +558,8 @@ void get_youtube_audio_url(char *video_id, char *url) {
     execvp(argv[0], argv);
   }
   close(pipeids[1]);
-  char str[MAX_URL_LEN];
-  int len = read(pipeids[0], str, MAX_URL_LEN);
+  char str[MAX_URL_LEN_MEDIA];
+  int len = read(pipeids[0], str, MAX_URL_LEN_MEDIA);
   str[len] = 0;
   close(pipeids[0]);
   waitpid(pid, NULL, 0);
@@ -572,7 +589,7 @@ void *ffmpeg_process_waiter(void *ptr) {
 void play_youtube_url(char *youtube_link, char *key_str, char *ssrc_str,
                       char *dest_address, char *dest_port, const int sockfd,
                       char *cache_file_unique_name) {
-  char url[MAX_URL_LEN];
+  char url[MAX_URL_LEN_MEDIA];
 
   int fd = open(cache_file_unique_name, O_CREAT | O_RDWR | O_TRUNC, 0644);
   close(fd);
@@ -664,7 +681,7 @@ void *media_player_threaded(void *ptr){
   char link[8000];
   while(1){
     sbuf_remove_end_value(&(yptr->media_player_t_ptr->song_queue), link, 8000, 1);
-    send_websocket(((voice_gateway_t *)(yptr->vgt))->voice_ssl,
+    send_websocket(yptr->vgt->voice_ssl,
           "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
           strlen(
               "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
@@ -691,7 +708,7 @@ void *media_player_threaded(void *ptr){
 
 media_player_t *start_player(char *key_str, char *ssrc_str,
                             char *dest_address, char *dest_port, int socketfd,
-                            char *cache_file_unique_name, void *vgt)
+                            char *cache_file_unique_name, voice_gateway_t *vgt)
 {
   youtube_player_t *yptr = malloc(sizeof(youtube_player_t));
   int key_str_len = strlen(key_str) + 1;
