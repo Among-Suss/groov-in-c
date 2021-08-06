@@ -381,10 +381,14 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
     if (read_test_len == 1) {
       lseek(in_fd, -1, SEEK_CUR);
     }else{
+      /*
       struct timespec sleeptime;
       sleeptime.tv_nsec = 20000000;
       sleeptime.tv_sec = 0;
       nanosleep(&sleeptime, NULL);
+      */
+
+      wait_for_time_slot(20000000, &state);
       continue;
     }
 
@@ -496,6 +500,7 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
         wait_for_time_slot(samples * 62500 / 3, &state);
 
         // clock_gettime(clock_id, &start2);
+        //fprintf(stderr, "waited for timeslot\n");
       }
     }
   }
