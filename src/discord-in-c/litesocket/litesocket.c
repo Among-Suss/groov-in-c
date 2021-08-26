@@ -161,7 +161,7 @@ char* simple_receive_websocket(SSL *ssl, unsigned long *read_len,
   } while (len > 0 && total_read_bytes < content_len);
 
   if (len == 0) {
-    printf("connection closed!");
+    fprintf(stdout, "\nconnection closed!\n");
     free(buf);
     return NULL;
   }
@@ -391,6 +391,7 @@ SSL *establish_websocket_connection(char *hostname, int hostname_len,
   return ssl;
 }
 
+//callback will call with null buffer and 0 readlen when the connection ends...
 void *threaded_receive_websock(void *ptr) {
   pthread_detach(pthread_self());
 
@@ -407,9 +408,12 @@ void *threaded_receive_websock(void *ptr) {
     if(buffer){
       (callback_data.callback)(callback_data.ssl, callback_data.state, buffer, readlen);
       free(buffer);
+    }else{
+      break;
     }
   }
 
+  (callback_data.callback)(callback_data.ssl, callback_data.state, 0, 0);
   return NULL;
 }
 

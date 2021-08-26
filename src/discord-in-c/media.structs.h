@@ -5,6 +5,18 @@ typedef struct ffmpeg_process_waiter_t{
 
 typedef struct media_player_t{
   sbuf_t song_queue;
+  sem_t skipper;
+  char current_url[2048];
+  volatile int playing;
+
+  volatile int udp_fd;
+  struct sockaddr *addr;
+  socklen_t addrlen;
+  unsigned char *key;
+
+  sem_t destination_info_mutex;
+
+  youtube_player_t *ytp;
 } media_player_t;
 
 typedef struct youtube_player_t{

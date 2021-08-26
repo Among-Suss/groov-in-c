@@ -42,3 +42,7 @@ void play_youtube_in_thread(char *youtube_link, char *key_str, char *ssrc_str, c
 media_player_t *start_player(char *key_str, char *ssrc_str,
                             char *dest_address, char *dest_port, int socketfd,
                             char *cache_file_unique_name, voice_gateway_t *vgt);
+
+media_player_t *modify_player(media_player_t *media, char *key_str, char *ssrc_str,
+                            char *dest_address, char *dest_port, int socketfd,
+                            char *cache_file_unique_name, voice_gateway_t *vgt);

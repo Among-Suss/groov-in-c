@@ -18,6 +18,18 @@
 #define DISCORD_HOST "discord.com"
 #define DISCORD_PORT "443"
 
+
+//discord http api
+#define DISCORD_API_POST_MSG "POST /api/v9/channels/%s/messages HTTP/1.1\r\n" \
+  "Host: " DISCORD_HOST "\r\n" \
+  "Authorization: Bot %s\r\n" \
+  "Content-Length: %d\r\n" \
+  "Content-Type: application/json"
+
+
+#define DISCORD_API_POST_BODY_MSG_SIMPLE "{\"content\": \"%s\",\"tts\": false}"
+
+
 #define DISCORD_GET_GATEWAY_REQUEST                                            \
   "GET /api/v9/gateway HTTP/1.1\r\nHost: discord.com\r\n\r\n"
 #define DISCORD_GATEWAY_CONNECT_URI "/?v=9&encoding=json"
@@ -66,6 +78,7 @@
 #define DISCORD_VOICE_SSRC "ssrc"
 #define DISCORD_VOICE_IP "ip"
 #define DISCORD_VOICE_SECRET_KEY "secret_key"
+#define DISCORD_VOICE_GATEWAY_GUILD_ID "GUILD_ID"
 
 // discord object dict keys
 #define BOT_TOKEN_KEY "bot_token"
@@ -76,6 +89,8 @@
 
 typedef void (*usercallback_f)(void *state, char *msg, unsigned long msg_len);
 
+typedef void (*voice_gateway_reconnection_callback_f)(void *state, char *msg, unsigned long msg_len);
+
 typedef struct discord_t discord_t;
 
 typedef struct voice_gateway_t voice_gateway_t;
@@ -85,4 +100,5 @@ void free_discord(discord_t *discord);
 void connect_gateway(discord_t *discord_data, char *discord_intent);
 void set_gateway_callback(discord_t *discord, usercallback_f gateway_callback);
 voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
-                           usercallback_f voice_callback);
+                           usercallback_f voice_callback, voice_gateway_reconnection_callback_f recon_callback);
+void reconnect_voice(voice_gateway_t *vgt);

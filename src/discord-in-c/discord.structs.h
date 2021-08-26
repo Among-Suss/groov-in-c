@@ -15,6 +15,7 @@ typedef struct discord_t {
 typedef struct voice_gateway_t {
   SSL *voice_ssl;
   usercallback_f voice_callback;
+  voice_gateway_reconnection_callback_f reconn_callback;
   pthread_t voice_gate_listener_tid;
   sem_t voice_writer_mutex;
   int heartbeating;

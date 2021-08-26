@@ -5,13 +5,41 @@
 #include "media.structs.h"
 #include "youtube/youtube-func.h"
 
+
+char *serverid = "807911659078680576";
+char *channelid = "857087599557607466";
+char *channel2 = "807911659078680580";
+char *textchannelid = "816227774531502111";
+char *bottoken;
+
+media_player_t *media;
+
+void on_reconnect_voice(void *state, char *msg, unsigned long msg_len) {
+  fprintf(stdout, "\n\non_reconnect_voice RECONNECTING MEDIA\n\n");
+
+  voice_gateway_t *vgt = (voice_gateway_t *)state;
+
+  char secret_key[1000];
+  char ip[100];
+  char port[100];
+  char *ssrc = "66666";
+
+  sm_get(vgt->data_dictionary, DISCORD_VOICE_IP, ip, 100);
+  sm_get(vgt->data_dictionary, DISCORD_VOICE_PORT, port, 100);
+  sm_get(vgt->data_dictionary, DISCORD_VOICE_SECRET_KEY, secret_key, 1000);
+
+  modify_player(media, secret_key, ssrc,
+                            ip, port, vgt->voice_udp_sockfd,
+                            "audiotmpfile.out", vgt);
+}
+
 void on_message(void *state, char *msg, unsigned long msg_len) {
   write(STDOUT_FILENO, msg, msg_len);
   write(STDOUT_FILENO, "yayay \n", strlen("yayay \n"));
 }
 
 int counter1 = 0;
-media_player_t *media;
+
 
 void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   discord_t *dis = state;
@@ -29,14 +57,39 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     char *end = strchr(content, ',') - 1;
     *end = 0;
 
-    if (!strncasecmp(content, "=p ", 3)) {
+    if (!strncasecmp(content, "=skip", 5)){
+      
+      sem_post(&(media->skipper));
+
+    } else if (!strncasecmp(content, "=np", 3)){
+
+      fprintf(stdout, "\ntrying to send msg...\n");
+      
+      ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                                          DISCORD_PORT, strlen(DISCORD_PORT));
+
+      char message[3000];
+      if(media && media->playing)
+        sprintf(message, DISCORD_API_POST_BODY_MSG_SIMPLE, media->current_url);
+      else
+        sprintf(message, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
+
+      char header[2000];
+      sprintf(header, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
+      char buffer[6000];
+      sprintf(buffer, "%s\r\n\r\n%s\r\n\r\n", header, message);
+      fprintf(stdout, buffer);
+      send_raw(dis->https_api_ssl, buffer,
+           strlen(buffer));
+
+    }else if (!strncasecmp(content, "=p ", 3)) {
       write(STDOUT_FILENO, "\n", 1);
       write(STDOUT_FILENO, content, strlen(content));
       write(STDOUT_FILENO, "\n", 1);
       content += 3;
 
       voice_gateway_t *vgt;
-      sm_get(dis->voice_gateway_map, "807911659078680576", (char *)&vgt,
+      sm_get(dis->voice_gateway_map, serverid, (char *)&vgt,
              sizeof(void *));
       //printf("%d\n", vgt);
       // DANGEROUS
@@ -80,7 +133,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         sbuf_insert_front_value((&(media->song_queue)), content, strlen(content) + 1);
       }else{
         char token[YOUTUBE_TOKEN_SIZE];
-        search_youtube_for_link_token(content, token);
+        search_youtube_for_link(content, token);
         sbuf_insert_front_value((&(media->song_queue)), token, strlen(token) + 1);
       }
 
@@ -125,6 +178,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 }
 
 int main(int argc, char **argv) {
+  bottoken = argv[1];
   discord_t *discord = init_discord(argv[1]);
 
   char buf[100];
@@ -134,8 +188,8 @@ int main(int argc, char **argv) {
   set_gateway_callback(discord, actually_do_shit);
   connect_gateway(discord, "643");
 
-  voice_gateway_t *vgt = connect_voice_gateway(discord, "807911659078680576", "857087599557607466",
-                        on_message);
+  voice_gateway_t *vgt = connect_voice_gateway(discord, serverid, channelid,
+                        on_message, on_reconnect_voice);
 
   char secret_key[1000];
   char ip[100];

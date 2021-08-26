@@ -311,7 +311,7 @@ int send_rtp_packet(int fd, struct sockaddr *addr, socklen_t addrlen,
 int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
                           socklen_t addrlen, const int sockfd, int payload_type,
                           unsigned char *key, int ssrc,
-                          int *ffmpeg_running_state) {
+                          int *ffmpeg_running_state, media_player_t *media_obj_ptr) {
   /* POSIX MONOTONIC CLOCK MEASURER */
   clockid_t clock_id;
   struct timespec start, start2, end;
@@ -377,6 +377,10 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
 
   while ((read_test_len = read(in_fd, &dummy_char, 1)) ||
          *ffmpeg_running_state) {
+
+    if(media_obj_ptr && sem_trywait(&(media_obj_ptr->skipper)) >= 0){
+      break;
+    }
 
     if (read_test_len == 1) {
       lseek(in_fd, -1, SEEK_CUR);
@@ -448,7 +452,13 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
         rtp.payload_size = op.bytes;
         // fprintf(stderr, "rtp %d %d %d %3d ms %5d bytes\n",
         //    rtp.type, rtp.seq, rtp.time, samples/48, rtp.payload_size);
-        send_rtp_packet(fd, addr, addrlen, &rtp, op.packet, key);
+        if(media_obj_ptr) {
+          sem_wait(&(media_obj_ptr->destination_info_mutex));
+          send_rtp_packet(media_obj_ptr->udp_fd, media_obj_ptr->addr, media_obj_ptr->addrlen, &rtp, op.packet, media_obj_ptr->key);
+          sem_post(&(media_obj_ptr->destination_info_mutex));
+        } else {
+          send_rtp_packet(fd, addr, addrlen, &rtp, op.packet, key);
+        }
 
         clock_gettime(clock_id, &end);
         long secediff = (long int)end.tv_sec - start.tv_sec;
@@ -515,7 +525,7 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
 
 int rtp_send_file(const char *filename, const char *dest, const char *port, const int sockfd,
                   int payload_type, unsigned char *key, int ssrc,
-                  int *ffmpeg_running_state) {
+                  int *ffmpeg_running_state, media_player_t *media_obj_ptr) {
   int ret;
   struct addrinfo *addrs;
   struct addrinfo hints;
@@ -531,8 +541,13 @@ int rtp_send_file(const char *filename, const char *dest, const char *port, cons
             gai_strerror(ret));
     return -1;
   }
+
+  media_obj_ptr->addr = addrs->ai_addr;
+  media_obj_ptr->addrlen = addrs->ai_addrlen;
+  media_obj_ptr->key = key;
+
   ret = rtp_send_file_to_addr(filename, addrs->ai_addr, addrs->ai_addrlen, sockfd,
-                              payload_type, key, ssrc, ffmpeg_running_state);
+                              payload_type, key, ssrc, ffmpeg_running_state, media_obj_ptr);
   freeaddrinfo(addrs);
   return ret;
 }
@@ -593,7 +608,7 @@ void *ffmpeg_process_waiter(void *ptr) {
 
 void play_youtube_url(char *youtube_link, char *key_str, char *ssrc_str,
                       char *dest_address, char *dest_port, const int sockfd,
-                      char *cache_file_unique_name) {
+                      char *cache_file_unique_name, media_player_t *media_obj_ptr) {
   char url[MAX_URL_LEN_MEDIA];
 
   int fd = open(cache_file_unique_name, O_CREAT | O_RDWR | O_TRUNC, 0644);
@@ -673,8 +688,9 @@ void play_youtube_url(char *youtube_link, char *key_str, char *ssrc_str,
   int ssrc = atoi(ssrc_str);
 
   rtp_send_file(cache_file_unique_name, dest_address, dest_port, sockfd, 120, diskey,
-                ssrc, &ffmpeg_process_state_value);
+                ssrc, &ffmpeg_process_state_value, media_obj_ptr);
 
+  kill(pid, SIGKILL);
   remove(cache_file_unique_name);
 }
 
@@ -686,6 +702,8 @@ void *media_player_threaded(void *ptr){
   char link[8000];
   while(1){
     sbuf_remove_end_value(&(yptr->media_player_t_ptr->song_queue), link, 8000, 1);
+    memcpy(yptr->media_player_t_ptr->current_url, link, 2048);
+    yptr->media_player_t_ptr->playing = 1;
     send_websocket(yptr->vgt->voice_ssl,
           "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
           strlen(
@@ -693,7 +711,8 @@ void *media_player_threaded(void *ptr){
           1);
     play_youtube_url(link, yptr->key_str, yptr->ssrc_str,
                    yptr->dest_address, yptr->dest_port, yptr->socketfd,
-                   yptr->cache_file_unique_name);
+                   yptr->cache_file_unique_name, yptr->media_player_t_ptr);
+    yptr->media_player_t_ptr->playing = 0;
   }
 
 
@@ -727,7 +746,7 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
   yptr->dest_address = malloc(dest_address_len);
   yptr->dest_port = malloc(dest_port_len);
   yptr->cache_file_unique_name = malloc(cache_file_unique_name_len);
-  yptr->media_player_t_ptr = malloc(sizeof(media_player_t));
+  yptr->media_player_t_ptr = calloc(1, sizeof(media_player_t));
 
   yptr->socketfd = socketfd;
 
@@ -738,6 +757,11 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
   memcpy(yptr->cache_file_unique_name, cache_file_unique_name, cache_file_unique_name_len);
 
   sbuf_init(&(yptr->media_player_t_ptr->song_queue));
+  sem_init(&(yptr->media_player_t_ptr->skipper), 0, 0);
+  sem_init(&(yptr->media_player_t_ptr->destination_info_mutex), 0, 1);
+
+  yptr->media_player_t_ptr->udp_fd = socketfd;
+  yptr->media_player_t_ptr->ytp = yptr;
 
   yptr->vgt = vgt;
 
@@ -747,7 +771,81 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
   return yptr->media_player_t_ptr;
 }
 
+media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssrc_str,
+                            char *dest_address, char *dest_port, int socketfd,
+                            char *cache_file_unique_name, voice_gateway_t *vgt)
+{
+  sem_wait(&(media->destination_info_mutex));
 
+  //fix key
+  char *end;
+  char *key_str_cpy = malloc(strlen(key_str_og) + 1);
+  strcpy(key_str_cpy, key_str_og);
+  char *key_str_cpy_unmov = key_str_cpy;
+
+  int i = 0;
+  while ((end = strchr(key_str_cpy, ','))) {
+    *end = 0;
+    media->key[i] = atoi(key_str_cpy);
+    key_str_cpy = end + 1;
+    i++;
+  }
+  media->key[31] = atoi(key_str_cpy);
+  free(key_str_cpy_unmov);
+
+  //fix file descriptor
+  media->udp_fd = socketfd;
+
+  //fix addr and addrlen
+  int ret;
+  struct addrinfo *addrs;
+  struct addrinfo hints;
+
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_DGRAM;
+  hints.ai_flags = 0;
+  hints.ai_protocol = IPPROTO_UDP;
+  ret = getaddrinfo(dest_address, dest_port, &hints, &addrs);
+  if (ret != 0 || !addrs) {
+    fprintf(stderr, "Cannot resolve host %s port %s: %s\n", dest_address, dest_port,
+            gai_strerror(ret));
+  }
+
+  media->addr = addrs->ai_addr;
+  media->addrlen = addrs->ai_addrlen;
+
+  freeaddrinfo(addrs);
+
+  //fix youtube player ptr values
+
+  int key_str_len = strlen(key_str_og) + 1;
+  int ssrc_str_len = strlen(ssrc_str) + 1;
+  int dest_address_len = strlen(dest_address) + 1;
+  int dest_port_len = strlen(dest_port) + 1;
+
+  media->ytp->key_str = realloc(media->ytp->key_str, key_str_len);
+  media->ytp->ssrc_str = realloc(media->ytp->ssrc_str, ssrc_str_len);
+  media->ytp->dest_address = realloc(media->ytp->dest_address, dest_address_len);
+  media->ytp->dest_port = realloc(media->ytp->dest_port, dest_port_len);
+
+  strcpy(media->ytp->key_str, key_str_og);
+  strcpy(media->ytp->ssrc_str, ssrc_str);
+  strcpy(media->ytp->dest_address, dest_address);
+  strcpy(media->ytp->dest_port, dest_port);
+  media->ytp->socketfd = socketfd;
+
+  sem_post(&(media->destination_info_mutex));
+
+
+  send_websocket(media->ytp->vgt->voice_ssl,
+          "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
+          strlen(
+              "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
+          1);
+
+  return 0;
+}
 
 
 
@@ -759,7 +857,7 @@ void *play_yt_threaded(void *ptr) {
 
   play_youtube_url(yptr->youtube_link, yptr->key_str, yptr->ssrc_str,
                    yptr->dest_address, yptr->dest_port, yptr->socketfd,
-                   yptr->cache_file_unique_name);
+                   yptr->cache_file_unique_name, 0);
 
   
   free(yptr->youtube_link);
