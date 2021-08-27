@@ -9,10 +9,16 @@ typedef struct discord_t {
   pthread_t heartbeat_tid;
   StrMap *data_dictionary;
   StrMap *voice_gateway_map;
+
+  int reconnection_count;
+  time_t last_reconnection_time;
+  
 } discord_t;
 
 
 typedef struct voice_gateway_t {
+  discord_t *discord;
+
   SSL *voice_ssl;
   usercallback_f voice_callback;
   voice_gateway_reconnection_callback_f reconn_callback;
@@ -28,4 +34,8 @@ typedef struct voice_gateway_t {
   StrMap *data_dictionary;
   unsigned char voice_encryption_key[32];
   int voice_udp_sockfd;
+  
+  int reconnection_count;
+  time_t last_reconnection_time;
+
 } voice_gateway_t;

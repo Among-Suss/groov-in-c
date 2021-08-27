@@ -16,5 +16,6 @@ typedef struct sbuf_t {
   struct linked_node_t *back;
   sem_t items;
   sem_t mutex;
+  sem_t removal_lock;
   int size;
 }sbuf_t;

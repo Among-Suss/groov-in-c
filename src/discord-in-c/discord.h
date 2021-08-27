@@ -8,6 +8,7 @@
 
 #define MAX_URL_LEN 2048
 #define MAX_PORT_LEN 50
+#define MAX_GATEWAY_INTENT_LEN 1024
 #define HEARTBEAT_STRING_MAX_LEN 1024
 #define MAX_BOT_TOKEN_LEN 1024
 #define DISCORD_MAX_MSG_LEN 4096
@@ -28,6 +29,14 @@
 
 
 #define DISCORD_API_POST_BODY_MSG_SIMPLE "{\"content\": \"%s\",\"tts\": false}"
+#define DISCORD_API_POST_BODY_MSG_EMBED "{"\
+  "\"content\": \"%s\","\
+  "\"tts\": false,"\
+  "\"embeds\": [{"\
+    "\"title\": \"%s\","\
+    "\"description\": \"%s\\n%s\""\
+  "}]"\
+"}"
 
 
 #define DISCORD_GET_GATEWAY_REQUEST                                            \
@@ -38,15 +47,22 @@
   "{\"op\": 1,\"d\": {},\"s\": null,\"t\": null}"
 #define DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE "\"op\":10"
 #define DISCORD_GATEWAY_AUTH_STRING "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": %s,\"properties\": {\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": \"discord_dot_c\"}}}"
+#define DISCORD_GATEWAY_REAUTH_STRING "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": %s,\"properties\": {\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": \"discord_dot_c\"}}}"
+
+
 
 #define DISCORD_VOICE_GT_URI "/?v=4"
 #define DISCORD_GATEWAY_VOICE_JOIN                                             \
   "{\"op\": 4,\"d\": {\"guild_id\": \"%s\",\"channel_id\": "                   \
   "\"%s\",\"self_mute\": false,\"self_deaf\": false}}"
 
+#define DISCORD_VOICE_REAUTH_STRING                                              \
+  "{\"op\": 7,\"d\": {\"server_id\": \"%s\",\"session_id\": \"%s\",\"token\": \"%s\"}}"
+
 #define DISCORD_VOICE_AUTH_STRING                                              \
   "{\"op\": 0,\"d\": {\"server_id\": \"%s\",\"user_id\": "                     \
   "\"%s\",\"session_id\": \"%s\",\"token\": \"%s\"}}"
+
 
 #define DISCORD_VOICE_HEARTBEAT "{\"op\": 3,\"d\": 1501184119560}"
 #define DISCORD_VOICE_ESTABLISH_UDP                                            \
@@ -70,6 +86,7 @@
 #define DISCORD_GATEWAY_VOICE_ENDPOINT "endpoint"
 #define DISCORD_GATEWAY_VOICE_TOKEN "token"
 #define DISCORD_GATEWAY_VOICE_PORT "voice_port"
+#define DISCORD_GATEWAY_INTENT "DISCORD_INTENT"
 
 // voice gateway search strings and dict keys
 #define DISCORD_VOICE_GT_INFO_OPCODE "\"op\":2"
@@ -79,6 +96,7 @@
 #define DISCORD_VOICE_IP "ip"
 #define DISCORD_VOICE_SECRET_KEY "secret_key"
 #define DISCORD_VOICE_GATEWAY_GUILD_ID "GUILD_ID"
+#define DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID "channel_id\":\""
 
 // discord object dict keys
 #define BOT_TOKEN_KEY "bot_token"
@@ -95,9 +113,9 @@ typedef struct discord_t discord_t;
 
 typedef struct voice_gateway_t voice_gateway_t;
 
-discord_t *init_discord(char *bot_token);
+discord_t *init_discord(char *bot_token, char *discord_intent);
 void free_discord(discord_t *discord);
-void connect_gateway(discord_t *discord_data, char *discord_intent);
+void connect_gateway(discord_t *discord_data);
 void set_gateway_callback(discord_t *discord, usercallback_f gateway_callback);
 voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
                            usercallback_f voice_callback, voice_gateway_reconnection_callback_f recon_callback);

@@ -17,8 +17,10 @@ void init_openssl() {
  *  Free ssl object
  */
 void disconnect_and_free_ssl(SSL *ssl) {
-  SSL_shutdown(ssl);
-  SSL_free(ssl);
+  if(ssl){
+    SSL_shutdown(ssl);
+    SSL_free(ssl);
+  }
 }
 
 /*

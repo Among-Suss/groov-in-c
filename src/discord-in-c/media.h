@@ -32,6 +32,8 @@
 #include "litesocket/litesocket.h"
 #include "discord.h"
 
+#define YOUTUBE_WEBPAGE_URL_SIZE 1024
+
 typedef struct ffmpeg_process_waiter_t ffmpeg_process_waiter_t;
 
 typedef struct media_player_t media_player_t;
@@ -46,3 +48,5 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
 media_player_t *modify_player(media_player_t *media, char *key_str, char *ssrc_str,
                             char *dest_address, char *dest_port, int socketfd,
                             char *cache_file_unique_name, voice_gateway_t *vgt);
+
+void insert_queue_ydl_query(media_player_t *media, char *ydl_query);

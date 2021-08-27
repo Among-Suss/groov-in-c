@@ -287,18 +287,6 @@ int send_rtp_packet(int fd, struct sockaddr *addr, socklen_t addrlen,
                rtp->header_size + rtp->payload_size + crypto_secretbox_MACBYTES,
                0, addr, addrlen);
 
-  // DANGEROUS////////////
-
-  char buffer[100000];
-  struct sockaddr_storage src_addr;
-  socklen_t src_addr_len = sizeof(src_addr);
-  int cnt = 0;
-  // cnt = recvfrom(fd,buffer,sizeof(buffer),0,(struct
-  // sockaddr*)&src_addr,&src_addr_len);
-
-  // fprintf(stderr, "RECEIVED:::::::%d\n", cnt);
-  ///////////////////////
-
   if (ret < 0) {
     fprintf(stderr, "error sending: %s\n", strerror(errno));
   }
@@ -314,18 +302,16 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
                           int *ffmpeg_running_state, media_player_t *media_obj_ptr) {
   /* POSIX MONOTONIC CLOCK MEASURER */
   clockid_t clock_id;
-  struct timespec start, start2, end;
+  struct timespec start, end;
   sysconf(_SC_MONOTONIC_CLOCK);
   clock_id = CLOCK_MONOTONIC;
   clock_gettime(clock_id, &start);
-  int last_frame_corrected = 0;
 
   time_slot_wait_t state;
   init_time_slot_wait(&state);
 
   rtp_header rtp;
   int fd;
-  int optval = 0;
   int ret;
   int in_fd;
   ogg_sync_state oy;
@@ -337,23 +323,13 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
   const long in_size = 8192; //= 8192;
   size_t in_read;
 
-  // danger
-  struct timeval read_timeout;
-  read_timeout.tv_sec = 0;
-  read_timeout.tv_usec = 10;
-  ////////
-
   //fd = socket(addr->sa_family, SOCK_DGRAM, IPPROTO_UDP);
   fd = sockfd;
   
   // check for fd < 0 Couldn't create socket
+  //==== int optval = 0;
   //=====DANGER REMOVAL //ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
   // check ret < 0 Couldn't set socket options
-
-  // DANGER
-  //ret = setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout,
-  //                 sizeof(read_timeout));
-  ////////
 
   rtp.version = 2;
   rtp.type = payload_type;
@@ -374,6 +350,9 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
 
   ret = ogg_sync_init(&oy);
   // check ret < 0 Couldn't initialize Ogg sync state
+  if(ret < 0){
+    fprintf(stdout, "OGG ERROR\n");
+  }
 
   while ((read_test_len = read(in_fd, &dummy_char, 1)) ||
          *ffmpeg_running_state) {
@@ -385,13 +364,6 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
     if (read_test_len == 1) {
       lseek(in_fd, -1, SEEK_CUR);
     }else{
-      /*
-      struct timespec sleeptime;
-      sleeptime.tv_nsec = 20000000;
-      sleeptime.tv_sec = 0;
-      nanosleep(&sleeptime, NULL);
-      */
-
       wait_for_time_slot(20000000, &state);
       continue;
     }
@@ -464,8 +436,6 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
         long secediff = (long int)end.tv_sec - start.tv_sec;
         long usecdiff =
             (long)((end.tv_nsec - start.tv_nsec) / 1000) + secediff * 1000000;
-        // fprintf(stderr, "Time elapsed: %ld, should be:%ld us", usecdiff,
-        // samples*125/6);
 
         if (usecdiff > 25000 || usecdiff < 15000) {
           fprintf(stderr,
@@ -473,44 +443,12 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
                   "........................................................... "
                   "%ld\n",
                   usecdiff);
-        } /*else{
-           fprintf(stderr, "\n");
-         }*/
+        }
+
         start = end;
-
-        long target = samples * 62500 / 3;
-
-        long lastnsdiff = usecdiff * 1000;
-        long deviation = lastnsdiff - target;
-        if (!last_frame_corrected &&
-            ((deviation > 5000000 && deviation < 15000000) ||
-             (deviation < -5000000 && deviation > -15000000))) {
-          target = target - deviation;
-          last_frame_corrected = 1;
-        } else {
-          last_frame_corrected = 0;
-        }
-
-        // long secdiff2 = end.tv_sec - start2.tv_sec;
-        // long nsecdiff = end.tv_nsec - start2.tv_nsec + (secdiff2 *
-        // 1000000000);
-        /*
-        while (nsecdiff < target){
-
-          //todo: find some way to "sleep"
-
-          clock_gettime(clock_id, &end);
-          secdiff2 = end.tv_sec - start2.tv_sec;
-          nsecdiff = end.tv_nsec - start2.tv_nsec + (secdiff2 * 1000000000);
-        }
-        */
-        // fprintf(stderr, "raw time: %ld\n", nsecdiff);
 
         /* convert number of 48 kHz samples to nanoseconds without overflow */
         wait_for_time_slot(samples * 62500 / 3, &state);
-
-        // clock_gettime(clock_id, &start2);
-        //fprintf(stderr, "waited for timeslot\n");
       }
     }
   }
@@ -556,7 +494,7 @@ void get_youtube_audio_url(char *video_id, char *url) {
   int pipeids[2];
 
   if (video_id == NULL) {
-    printf("Error: Please provide a video ID...\n");
+    fprintf(stderr, "Error: Please provide a video ID...\n");
     exit(-1);
   }
 
@@ -587,8 +525,6 @@ void get_youtube_audio_url(char *video_id, char *url) {
   char *urlendp = strstr(str, "\n");
   *urlendp = 0;
   strcpy(url, str);
-
-  printf("AUDIO URL: %s\n\n", url);
 }
 
 void *ffmpeg_process_waiter(void *ptr) {
@@ -655,7 +591,7 @@ void play_youtube_url(char *youtube_link, char *key_str, char *ssrc_str,
                           0};
 
     if (execvp(new_argv[0], new_argv) < 0) {
-      printf("UNIX EXECVE ERROR\n");
+      fprintf(stderr, "UNIX EXECVE ERROR\n");
       exit(1);
     }
   }
@@ -699,20 +635,25 @@ void *media_player_threaded(void *ptr){
   pthread_detach(pthread_self());
   youtube_player_t *yptr = (youtube_player_t *)ptr;
 
-  char link[8000];
+  youtube_page_object_t ytpobj;
+  char link[sizeof(ytpobj)];
   while(1){
-    sbuf_remove_end_value(&(yptr->media_player_t_ptr->song_queue), link, 8000, 1);
-    memcpy(yptr->media_player_t_ptr->current_url, link, 2048);
+    sbuf_peek_end_value(&(yptr->media_player_t_ptr->song_queue), &(ytpobj), sizeof(ytpobj), 1);
+    memcpy(link, ytpobj.query, sizeof(ytpobj.query));
+
     yptr->media_player_t_ptr->playing = 1;
     send_websocket(yptr->vgt->voice_ssl,
           "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
           strlen(
               "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
           1);
+          
     play_youtube_url(link, yptr->key_str, yptr->ssrc_str,
                    yptr->dest_address, yptr->dest_port, yptr->socketfd,
                    yptr->cache_file_unique_name, yptr->media_player_t_ptr);
     yptr->media_player_t_ptr->playing = 0;
+
+    sbuf_remove_end_value(&(yptr->media_player_t_ptr->song_queue), 0, 0, 1);
   }
 
 
@@ -846,6 +787,78 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
 
   return 0;
 }
+
+void get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
+  int pipeids[2];
+
+  if (query == NULL) {
+    printf("Error: Please provide a video ID...\n");
+    exit(-1);
+  }
+
+  pipe(pipeids);
+
+  pid_t pid;
+  if ((pid = fork()) == 0) {
+    close(pipeids[0]);
+    dup2(pipeids[1], STDOUT_FILENO);
+
+    char *argv[10];
+    argv[0] = "youtube-dl";
+    argv[1] = "--get-id";
+    argv[2] = "-e";
+    argv[3] = "--get-description";
+    argv[4] = query;
+    argv[5] = 0;
+
+    execvp(argv[0], argv);
+  }
+  close(pipeids[1]);
+  waitpid(pid, NULL, 0);
+
+  char str[sizeof(ytobjptr->title) + sizeof(ytobjptr->link) - 64 + sizeof(ytobjptr->description)];
+  int len = read(pipeids[0], str, sizeof(str));
+  str[len] = 0;
+
+  close(pipeids[0]);
+  
+  char *uid = strchr(str, '\n');
+  *uid = 0;
+  uid++;
+
+  char *desc = strchr(uid, '\n');
+  *desc = 0;
+  desc++;
+
+  strncpy(ytobjptr->title, str, sizeof(ytobjptr->title));
+  snprintf(ytobjptr->link, sizeof(ytobjptr->link), "https://www.youtube.com/watch?v=%s", uid);
+  strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description));
+}
+
+void *threaded_youtube_info_query(void *ptr){
+  pthread_detach(pthread_self());
+
+  media_player_t *media = ptr;
+  youtube_page_object_t *stored_obj = media->song_queue.front->next->value;
+
+  get_youtube_vid_info(stored_obj->query, stored_obj);
+
+  sbuf_removal_unlock(&(media->song_queue));
+
+  return 0;
+}
+
+void insert_queue_ydl_query(media_player_t *media, char *ydl_query){
+  youtube_page_object_t ytobj;
+  strncpy(ytobj.query, ydl_query, sizeof(ytobj.query));
+
+  sbuf_removal_lock(&(media->song_queue));
+  sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
+
+  pthread_t tid;
+  pthread_create(&tid, NULL, threaded_youtube_info_query, media);
+}
+
 
 
 

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #define MIN(x,y) x < y ? x : y
 
@@ -37,7 +38,7 @@ void sbuf_init(struct sbuf_t *sp);
 void sbuf_deinit(struct sbuf_t *sp);
 
 
-/* initialize sbuf package
+/* remove value by searching
  *
  *  Parameters:
  *      sp      = pointer to sbuf object already allocated by user
@@ -51,7 +52,7 @@ void sbuf_deinit(struct sbuf_t *sp);
 int sbuf_remove_value(struct sbuf_t *sp, void *value, int len);
 
 
-/* initialize sbuf package
+/* insert to the front of the queue
  *
  *  Parameters:
  *      sp      = pointer to sbuf object already allocated by user
@@ -63,12 +64,13 @@ int sbuf_remove_value(struct sbuf_t *sp, void *value, int len);
 void sbuf_insert_front_value(struct sbuf_t *sp, void *value, int len);
 
 
-/* initialize sbuf package
+/* remove from the back of the queue
  *
  *  Parameters:
  *      sp      = pointer to sbuf object already allocated by user
  *      retval  = pointer to a buffer which will hold the value
  *                to of the last node to be returned to the caller.
+ *            *******CAN BE NULL. JUST WONT RETURN ANYTHING!!!!********
  *      len     = length of retval buffer
  *      lockitem= if lockitem is 1, sbuf will block until an item
  *                  becomes available. if lockitem is 0 sbuf will
@@ -79,3 +81,17 @@ void sbuf_insert_front_value(struct sbuf_t *sp, void *value, int len);
  */
 void *sbuf_remove_end_value(struct sbuf_t *sp, void *retval, int len,
                            int lockitem);
+
+/* peek end value
+ *  
+ *
+ */
+void *sbuf_peek_end_value(struct sbuf_t *sp, void *retval, int len,
+                           int lockitem);
+
+/*
+ * These functions are used to arbitrarily lock/unlock the removal functions.
+ * They are very useful for fixing race conditions...
+ */
+void sbuf_removal_lock(struct sbuf_t *sp);
+void sbuf_removal_unlock(struct sbuf_t *sp);

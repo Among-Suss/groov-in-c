@@ -3,10 +3,17 @@ typedef struct ffmpeg_process_waiter_t{
     int *ffmpeg_process_state;
 } ffmpeg_process_waiter_t;
 
+typedef struct youtube_page_object_t{
+  char query[1024];
+  char link[YOUTUBE_WEBPAGE_URL_SIZE];
+  char title[1024];
+  char description[2048];
+  int length_in_seconds;
+} youtube_page_object_t;
+
 typedef struct media_player_t{
   sbuf_t song_queue;
   sem_t skipper;
-  char current_url[2048];
   volatile int playing;
 
   volatile int udp_fd;
