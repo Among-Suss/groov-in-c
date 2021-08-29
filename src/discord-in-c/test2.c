@@ -79,6 +79,21 @@ void escape_http_doublequote(char *input, long unsigned in_size, char *output, l
   output[out_size - 1] = 0;
 }
 
+void fix_string_ending(char *str){
+  int length = strlen(str);
+  unsigned char *working = ((unsigned char *)str) + length - 1;
+
+  while(working != ((unsigned char *)str)){
+    if(((*working) & 0xC0) != 0x80){
+      break;
+    }
+
+    working--;
+  }
+
+  *working = 0;
+}
+
 void on_reconnect_voice(void *state, char *msg, unsigned long msg_len) {
   fprintf(stdout, "\n\non_reconnect_voice RECONNECTING MEDIA\n\n");
 
@@ -126,7 +141,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       
       sem_post(&(media->skipper));
 
-    } else if (!strncasecmp(content, "=np", 3)){
+    } else if (!strncasecmp(content, "=desc", 5)){
 
       fprintf(stdout, "\ntrying to send msg...\n");
       
@@ -148,12 +163,36 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
         escape_http_doublequote(text, sizeof(text), text2, sizeof(text2));
 
+        fix_string_ending(text2);
+
         snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", ytpobj.title, ytpobj.link, text2);
       }
       else{
         snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
       }
 
+      char header[2000];
+      snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
+      char buffer[9000];
+      snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+      fprintf(stdout, buffer);
+      send_raw(dis->https_api_ssl, buffer,
+           strlen(buffer));
+
+    }else if (!strncasecmp(content, "=np", 3)){
+
+      fprintf(stdout, "\ntrying to send msg...\n");
+      ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                                          DISCORD_PORT, strlen(DISCORD_PORT));
+      char message[5500];
+      youtube_page_object_t ytpobj;
+      sbuf_peek_end_value(&(media->song_queue), &(ytpobj), sizeof(ytpobj), 1);
+      if(media && media->playing){
+        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", ytpobj.title, ytpobj.link, "");
+      }
+      else{
+        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
+      }
       char header[2000];
       snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
       char buffer[9000];

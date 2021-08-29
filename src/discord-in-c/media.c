@@ -817,8 +817,11 @@ void get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   waitpid(pid, NULL, 0);
 
   char str[sizeof(ytobjptr->title) + sizeof(ytobjptr->link) - 64 + sizeof(ytobjptr->description)];
-  int len = read(pipeids[0], str, sizeof(str));
-  str[len] = 0;
+  long unsigned len = read(pipeids[0], str, sizeof(str));
+  long int last_char = (len < sizeof(str) ? len : (sizeof(str) - 1));
+  str[last_char] = 0;
+
+  fprintf(stdout, "\n\ndesc:%s\n\n", str);
 
   close(pipeids[0]);
   
