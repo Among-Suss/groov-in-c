@@ -1,3 +1,11 @@
+typedef struct media_player_t media_player_t;
+
+typedef struct user_vc_obj {
+  char user_id[64];
+  char guild_id[64];
+  char vc_id[64];
+} user_vc_obj;
+
 typedef struct discord_t {
   SSL *https_api_ssl;
   SSL *gateway_ssl;
@@ -13,6 +21,7 @@ typedef struct discord_t {
   int reconnection_count;
   time_t last_reconnection_time;
   
+  StrMap *user_vc_map;
 } discord_t;
 
 
@@ -38,4 +47,5 @@ typedef struct voice_gateway_t {
   int reconnection_count;
   time_t last_reconnection_time;
 
+  media_player_t *media;
 } voice_gateway_t;

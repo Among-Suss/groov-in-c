@@ -482,7 +482,7 @@ int rtp_send_file(const char *filename, const char *dest, const char *port, cons
 
   media_obj_ptr->addr = addrs->ai_addr;
   media_obj_ptr->addrlen = addrs->ai_addrlen;
-  media_obj_ptr->key = key;
+  memcpy(media_obj_ptr->key, key, sizeof(media_obj_ptr->key));
 
   ret = rtp_send_file_to_addr(filename, addrs->ai_addr, addrs->ai_addrlen, sockfd,
                               payload_type, key, ssrc, ffmpeg_running_state, media_obj_ptr);
@@ -637,8 +637,13 @@ void *media_player_threaded(void *ptr){
 
   youtube_page_object_t ytpobj;
   char link[sizeof(ytpobj)];
-  while(1){
+  while(sem_trywait(&(yptr->media_player_t_ptr->quitter)) < 0){
     sbuf_peek_end_value(&(yptr->media_player_t_ptr->song_queue), &(ytpobj), sizeof(ytpobj), 1);
+
+    if(sem_trywait(&(yptr->media_player_t_ptr->quitter)) >= 0){
+      break;
+    }
+
     memcpy(link, ytpobj.query, sizeof(ytpobj.query));
 
     yptr->media_player_t_ptr->playing = 1;
@@ -649,11 +654,11 @@ void *media_player_threaded(void *ptr){
           1);
           
     play_youtube_url(link, yptr->key_str, yptr->ssrc_str,
-                   yptr->dest_address, yptr->dest_port, yptr->socketfd,
-                   yptr->cache_file_unique_name, yptr->media_player_t_ptr);
+                  yptr->dest_address, yptr->dest_port, yptr->socketfd,
+                  yptr->cache_file_unique_name, yptr->media_player_t_ptr);
     yptr->media_player_t_ptr->playing = 0;
 
-    sbuf_remove_end_value(&(yptr->media_player_t_ptr->song_queue), 0, 0, 1);
+    sbuf_remove_end_value(&(yptr->media_player_t_ptr->song_queue), 0, 0, 0);
   }
 
 
@@ -699,6 +704,7 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
 
   sbuf_init(&(yptr->media_player_t_ptr->song_queue));
   sem_init(&(yptr->media_player_t_ptr->skipper), 0, 0);
+  sem_init(&(yptr->media_player_t_ptr->quitter), 0, 0);
   sem_init(&(yptr->media_player_t_ptr->destination_info_mutex), 0, 1);
 
   yptr->media_player_t_ptr->udp_fd = socketfd;
@@ -708,6 +714,7 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
 
   pthread_t tid;
   pthread_create(&tid, NULL, media_player_threaded, yptr);
+  yptr->media_player_t_ptr->player_thread_id = tid;
 
   return yptr->media_player_t_ptr;
 }
@@ -753,7 +760,7 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
             gai_strerror(ret));
   }
 
-  media->addr = addrs->ai_addr;
+  memcpy(media->addr, addrs->ai_addr, sizeof(struct sockaddr));
   media->addrlen = addrs->ai_addrlen;
 
   freeaddrinfo(addrs);

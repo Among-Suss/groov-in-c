@@ -16,6 +16,8 @@
 #define DISCORD_DATA_TABLE_SIZE 100
 #define DISCORD_MAX_VOICE_CONNECTIONS 1000
 
+#define EXPECTED_NUM_USERS_MAX 997 //this number should be prime
+
 #define DISCORD_HOST "discord.com"
 #define DISCORD_PORT "443"
 
@@ -56,6 +58,10 @@
   "{\"op\": 4,\"d\": {\"guild_id\": \"%s\",\"channel_id\": "                   \
   "\"%s\",\"self_mute\": false,\"self_deaf\": false}}"
 
+#define DISCORD_GATEWAY_VOICE_LEAVE                                             \
+  "{\"op\": 4,\"d\": {\"guild_id\": \"%s\",\"channel_id\": "                   \
+  "null,\"self_mute\": false,\"self_deaf\": false}}"
+
 #define DISCORD_VOICE_REAUTH_STRING                                              \
   "{\"op\": 7,\"d\": {\"server_id\": \"%s\",\"session_id\": \"%s\",\"token\": \"%s\"}}"
 
@@ -82,11 +88,12 @@
 #define DISCORD_GATEWAY_HEARTBEAT_INTERVAL "\"heartbeat_interval"
 #define DISCORD_GATEWAY_VOICE_SESSION_ID "session_id"
 #define DISCORD_GATEWAY_VOICE_USERNAME "username"
-#define DISCORD_GATEWAY_VOICE_BOT_ID "id"
+#define DISCORD_GATEWAY_VOICE_USER_ID "\"id\""
 #define DISCORD_GATEWAY_VOICE_ENDPOINT "endpoint"
 #define DISCORD_GATEWAY_VOICE_TOKEN "token"
 #define DISCORD_GATEWAY_VOICE_PORT "voice_port"
 #define DISCORD_GATEWAY_INTENT "DISCORD_INTENT"
+#define DISCORD_GATEWAY_MSG_CHANNEL_ID "\"channel_id\""
 
 // voice gateway search strings and dict keys
 #define DISCORD_VOICE_GT_INFO_OPCODE "\"op\":2"
@@ -114,9 +121,10 @@ typedef struct discord_t discord_t;
 typedef struct voice_gateway_t voice_gateway_t;
 
 discord_t *init_discord(char *bot_token, char *discord_intent);
+void free_voice_gateway(voice_gateway_t *vgt);
 void free_discord(discord_t *discord);
 void connect_gateway(discord_t *discord_data);
 void set_gateway_callback(discord_t *discord, usercallback_f gateway_callback);
 voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
-                           usercallback_f voice_callback, voice_gateway_reconnection_callback_f recon_callback);
+                           usercallback_f voice_callback, voice_gateway_reconnection_callback_f recon_callback, int wait_server);
 void reconnect_voice(voice_gateway_t *vgt);

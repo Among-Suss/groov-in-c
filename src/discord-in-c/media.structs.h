@@ -19,11 +19,15 @@ typedef struct media_player_t{
   volatile int udp_fd;
   struct sockaddr *addr;
   socklen_t addrlen;
-  unsigned char *key;
+  unsigned char key[32];
 
   sem_t destination_info_mutex;
 
   youtube_player_t *ytp;
+
+  pid_t player_thread_id;
+
+  sem_t quitter;
 } media_player_t;
 
 typedef struct youtube_player_t{

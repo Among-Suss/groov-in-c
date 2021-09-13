@@ -16,14 +16,14 @@ discord_t *init_discord(char *bot_token, char *discord_intent) {
 
   sem_init(&(discord_data->gateway_writer_mutex), 0, 1);
 
-  StrMap *sm;
-
-  sm = sm_new(DISCORD_MAX_VOICE_CONNECTIONS);
+  StrMap *sm = sm_new(DISCORD_MAX_VOICE_CONNECTIONS);
   discord_data->voice_gateway_map = sm;
 
   sm = sm_new(DISCORD_DATA_TABLE_SIZE);
   discord_data->data_dictionary = sm;
   sm_put(sm, BOT_TOKEN_KEY, bot_token, strlen(bot_token) + 1);
+
+  discord_data->user_vc_map = sm_new(EXPECTED_NUM_USERS_MAX);
 
   SSL *api_ssl = establish_ssl_connection(DISCORD_HOST, strlen(DISCORD_HOST),
                                           DISCORD_PORT, strlen(DISCORD_PORT));
@@ -54,15 +54,24 @@ discord_t *init_discord(char *bot_token, char *discord_intent) {
 
 //These functions deal with cleanup code
 
+void free_voice_gateway(voice_gateway_t *vgt){
+  fprintf(stdout, "\n\ntest1\n\n");
+  pthread_cancel(vgt->voice_gate_listener_tid);
+  pthread_cancel(vgt->heartbeat_tid);
+  fprintf(stdout, "\n\ntest2\n\n");
+  if (vgt->voice_ssl)
+    disconnect_and_free_ssl(vgt->voice_ssl);
+
+  fprintf(stdout, "\n\ntest3\n\n");
+  sm_delete(vgt->data_dictionary);
+  fprintf(stdout, "\n\ntest4\n\n");
+  free(vgt);
+}
+
 //cleanup callback
 void enum_callback_delete(const char *key, const char *value, int value_len,
                           const void *obj) {
   voice_gateway_t *vgt = *((void **)value);
-  pthread_cancel(vgt->voice_gate_listener_tid);
-  pthread_cancel(vgt->heartbeat_tid);
-  if (vgt->voice_ssl)
-    disconnect_and_free_ssl(vgt->voice_ssl);
-  sm_delete(vgt->data_dictionary);
   free(vgt);
 }
 
@@ -82,6 +91,7 @@ void free_discord(discord_t *discord) {
 
   sm_delete(discord->voice_gateway_map);
   sm_delete(discord->data_dictionary);
+  sm_delete(discord->user_vc_map);
 
   free(discord);
 }
@@ -137,30 +147,48 @@ void start_heartbeat_gateway(discord_t *discord, char *msg) {
 //handle voice state obj from discord
 //when connecting to voice
 void update_voice_state(discord_t *discord, char *msg) {
+  char bot_id[DISCORD_MAX_ID_LEN];
+  int ret = sm_get(discord->data_dictionary, DISCORD_GATEWAY_BOT_ID, bot_id, DISCORD_MAX_ID_LEN);
+  char *is_bot = 0;
+  if(ret){
+    is_bot = strstr(msg, bot_id);
+  }
+
   char *session_id = strcasestr(msg, DISCORD_GATEWAY_VOICE_SESSION_ID);
-  session_id += 13;
+  if(session_id)
+    session_id += 13;
 
   char *guild_id = strcasestr(msg, DISCORD_GUILD_ID);
-  guild_id += 11;
+  if(guild_id)
+    guild_id += 11;
 
   char *botid = strcasestr(msg, DISCORD_GATEWAY_VOICE_USERNAME);
-  botid = strcasestr(msg, DISCORD_GATEWAY_VOICE_BOT_ID);
-  botid += 5;
+  if(botid){
+    botid = strcasestr(botid, DISCORD_GATEWAY_VOICE_USER_ID);
+    botid += 6;
+  }
 
   char *channel_id = strcasestr(msg, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID);
   if(channel_id)
     channel_id += 13;
 
+  //splice the strings
   char *end;
 
-  end = strchr(session_id, '"');
-  *end = 0;
+  if(session_id){
+    end = strchr(session_id, '"');
+    *end = 0;
+  }
 
-  end = strchr(guild_id, '"');
-  *end = 0;
+  if(guild_id){
+    end = strchr(guild_id, '"');
+    *end = 0;
+  }
 
-  end = strchr(botid, '"');
-  *end = 0;
+  if(botid){
+    end = strchr(botid, '"');
+    *end = 0;
+  }
 
   char *channel_id_end = 0;
   if(channel_id){
@@ -170,23 +198,35 @@ void update_voice_state(discord_t *discord, char *msg) {
     }
   }
   
+  if(is_bot){
+    voice_gateway_t *vgt = 0;
+    int ret = sm_get(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
 
-  voice_gateway_t *vgt;
-  int ret = sm_get(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
+    fprintf(stdout, "\n\ndebug vc channel id: %s \n...%d...\n", channel_id, ret);
 
-  fprintf(stdout, "\n\ndebug vc channel id: %s \n\n", channel_id);
-
-  if(ret){
-    sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_SESSION_ID, session_id,
-          strlen(session_id) + 1);
-    sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_BOT_ID, botid,
-          strlen(botid) + 1);
-    if(channel_id_end){
-      sm_put(vgt->data_dictionary, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID, channel_id,
-            strlen(channel_id) + 1);
+    if(ret && vgt){
+      sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_SESSION_ID, session_id,
+            strlen(session_id) + 1);
+      sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_USER_ID, botid,
+            strlen(botid) + 1);
+      if(channel_id_end){
+        sm_put(vgt->data_dictionary, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID, channel_id,
+              strlen(channel_id) + 1);
+      }
+      sem_post(&(vgt->ready_state_update));
     }
-    sem_post(&(vgt->ready_state_update));
+  }else if(channel_id){
+    user_vc_obj uobj = { 0 };
+    strncpy(uobj.guild_id, guild_id, sizeof(uobj.guild_id));
+    strncpy(uobj.vc_id, channel_id, sizeof(uobj.vc_id));
+    strncpy(uobj.user_id, botid, sizeof(uobj.user_id));
+
+    fprintf(stdout, "\n\nupdating user vc:%s\n\n", uobj.vc_id);
+
+    sm_put(discord->user_vc_map, uobj.user_id, (char *)&uobj, sizeof(uobj));
   }
+
+  fprintf(stderr, "FINISHED THE UPDATE WELL>>>\n");
 }
 
 //handles voice server object from discord
@@ -225,6 +265,24 @@ void update_voice_server(discord_t *discord, char *msg) {
          strlen(endpoint) + 1);
   sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_PORT, port,
          strlen(port) + 1);
+
+  char dgvt_notvoice[100];
+  char dgve_notvoice[100];
+  char dgvp_notvoice[100];
+
+  snprintf(dgvt_notvoice, 100, "%s%s", DISCORD_GATEWAY_VOICE_TOKEN, guild_id);
+  snprintf(dgve_notvoice, 100, "%s%s", DISCORD_GATEWAY_VOICE_ENDPOINT, guild_id);
+  snprintf(dgvp_notvoice, 100, "%s%s", DISCORD_GATEWAY_VOICE_PORT, guild_id);
+
+  sm_put(discord->data_dictionary, dgvt_notvoice, token,
+         strlen(token) + 1);
+  sm_put(discord->data_dictionary, dgve_notvoice, endpoint,
+         strlen(endpoint) + 1);
+  sm_put(discord->data_dictionary, dgvp_notvoice, port,
+         strlen(port) + 1);
+
+  fprintf(stderr, "test:%s\n", dgvt_notvoice);
+
   sem_post(&(vgt->ready_server_update));
 }
 
@@ -272,11 +330,8 @@ void internal_gateway_callback(SSL *ssl, void *state, char *msg,
     return;
   }
 
-  char bot_id[DISCORD_MAX_ID_LEN];
-  int ret = sm_get(discord->data_dictionary, DISCORD_GATEWAY_BOT_ID, bot_id, DISCORD_MAX_ID_LEN);
-
-  if (strcasestr(msg, DISCORD_GATEWAY_VOICE_STATE_UPDATE) &&
-      ret && strstr(msg, bot_id)) {
+  
+  if (strcasestr(msg, DISCORD_GATEWAY_VOICE_STATE_UPDATE)) {
     write(STDOUT_FILENO, msg, msg_len);
     write(STDOUT_FILENO, "\n", 1);
     update_voice_state(discord, msg);
@@ -544,7 +599,7 @@ void reconnect_voice(voice_gateway_t *vgt){
 
   sm_get(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_SESSION_ID, sessionid,
          DISCORD_MAX_ID_LEN);
-  sm_get(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_BOT_ID, botuid,
+  sm_get(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_USER_ID, botuid,
          DISCORD_MAX_ID_LEN);
   sm_get(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_TOKEN, token,
          DISCORD_MAX_ID_LEN);
@@ -646,7 +701,7 @@ void reconnect_voice(voice_gateway_t *vgt){
 }
 
 voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
-                           usercallback_f voice_callback, voice_gateway_reconnection_callback_f reconn_callback) {
+                           usercallback_f voice_callback, voice_gateway_reconnection_callback_f reconn_callback, int wait_server) {
   int guild_id_len = strlen(guild_id);
   int channel_id_len = strlen(channel_id);
 
@@ -672,12 +727,48 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
   snprintf(msg, guild_id_len + channel_id_len + gate_vo_join_len,
            DISCORD_GATEWAY_VOICE_JOIN, guild_id, channel_id);
 
+  fprintf(stdout, "\n\n\nREQUESTING JOIN VOICE\n\n\n");
   sem_wait(&(discord->gateway_writer_mutex));
   send_websocket(discord->gateway_ssl, msg, strlen(msg), WEBSOCKET_OPCODE_MSG);
   sem_post(&(discord->gateway_writer_mutex));
 
+  fprintf(stdout, "\n\n\nWAITING FOR SERVER UPDATE\n\n\n");
   sem_wait(&(vgt->ready_state_update));
-  sem_wait(&(vgt->ready_server_update));
+  if(wait_server)
+    sem_wait(&(vgt->ready_server_update));
+  else{
+    sleep(3);
+
+    char token[100];
+    char port[100];
+    char endpoint[100];
+
+    char dgvt_notvoice[100];
+    char dgve_notvoice[100];
+    char dgvp_notvoice[100];
+
+    snprintf(dgvt_notvoice, 100, "%s%s", DISCORD_GATEWAY_VOICE_TOKEN, guild_id);
+    snprintf(dgve_notvoice, 100, "%s%s", DISCORD_GATEWAY_VOICE_ENDPOINT, guild_id);
+    snprintf(dgvp_notvoice, 100, "%s%s", DISCORD_GATEWAY_VOICE_PORT, guild_id);
+
+    sm_get(discord->data_dictionary, dgvt_notvoice, token,
+         100);
+    sm_get(discord->data_dictionary, dgve_notvoice, endpoint,
+         100);
+    sm_get(discord->data_dictionary, dgvp_notvoice, port,
+         100);
+
+    fprintf(stderr, "test:%s\n\n", dgvt_notvoice);
+    fflush(stderr);
+
+    sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_TOKEN, token,
+         strlen(token) + 1);
+    sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_ENDPOINT, endpoint,
+         strlen(endpoint) + 1);
+    sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_PORT, port,
+         strlen(port) + 1);
+
+  }
 
   // connect to voice and establish callback.....
   vgt->voice_callback = voice_callback;
@@ -706,7 +797,7 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
 
   sm_get(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_SESSION_ID, sessionid,
          DISCORD_MAX_ID_LEN);
-  sm_get(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_BOT_ID, botuid,
+  sm_get(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_USER_ID, botuid,
          DISCORD_MAX_ID_LEN);
   sm_get(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_TOKEN, token,
          DISCORD_MAX_ID_LEN);
