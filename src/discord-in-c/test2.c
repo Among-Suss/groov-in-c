@@ -4,6 +4,7 @@
 #include "discord.structs.h"
 #include "media.structs.h"
 
+#define BOT_PREFIX "-"
 
 //char *serverid = "807911659078680576";
 //char *channelid = "857087599557607466";
@@ -172,7 +173,7 @@ void *threaded_play_cmd(void *ptr){
       write(STDOUT_FILENO, "\n", 1);
       pobj->content += 3;
 
-      if(!strncasecmp(pobj->content, "https://", 8)){
+      if(!strncasecmp(pobj->content, "https://", 8) && 1){
         insert_queue_ydl_query(pobj->vgt->media, pobj->content);
       }else{
         char youtube_dl_search_txt[2048];
@@ -240,7 +241,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
     voice_gateway_t *vgt = 0;
     int ret = 1;
-    if (!strncasecmp(content, "=", 1)){
+    if (!strncasecmp(content, BOT_PREFIX, 1)){
       sm_get(dis->voice_gateway_map, uobj.guild_id, (char *)&vgt,
              sizeof(void *));
       if(!vgt){
@@ -250,7 +251,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
     fprintf(stdout, "\n%s %d\n", content, ret);
 
-    if(!strncasecmp(content, "=leave", 6) && ret){
+    if(!strncasecmp(content, BOT_PREFIX"leave", 6) && ret){
       fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
       sem_post(&(vgt->media->quitter));
       youtube_page_object_t yobj = { 0 };
@@ -276,11 +277,11 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
       free_voice_gateway(vgt);
       fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
-    }else if (!strncasecmp(content, "=skip", 5) && ret){
+    }else if (!strncasecmp(content, BOT_PREFIX"skip", 5) && ret){
       
       sem_post(&(vgt->media->skipper));
 
-    } else if (!strncasecmp(content, "=desc", 5) && ret){
+    } else if (!strncasecmp(content, BOT_PREFIX"desc", 5) && ret){
 
       fprintf(stdout, "\ntrying to send msg...\n");
       
@@ -326,7 +327,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       send_raw(dis->https_api_ssl, buffer,
            strlen(buffer));
 
-    }else if (!strncasecmp(content, "=np", 3) && ret){
+    }else if (!strncasecmp(content, BOT_PREFIX"np", 3) && ret){
 
       fprintf(stdout, "\ntrying to send msg...\n");
       ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
@@ -355,7 +356,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       send_raw(dis->https_api_ssl, buffer,
            strlen(buffer));
 
-    }else if (!strncasecmp(content, "=queue", 6) && ret){
+    }else if (!strncasecmp(content, BOT_PREFIX"queue", 6) && ret){
 
       fprintf(stdout, "\ntrying to send msg...\n");
       ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
@@ -364,10 +365,11 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       youtube_page_object_t ytpobj;
       sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 1);
       if(vgt->media && vgt->media->playing){
-        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", ytpobj.title, ytpobj.link, "");
+        //snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", ytpobj.title, ytpobj.link, "");
+        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Sorry, this function is not yet implemented!");
       }
       else{
-        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
+        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Sorry, this function is not yet implemented!");
       }
       char header[2000];
       snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
@@ -377,7 +379,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       send_raw(dis->https_api_ssl, buffer,
            strlen(buffer));
 
-    }else if (!strncasecmp(content, "=p ", 3)) {
+    }else if (!strncasecmp(content, BOT_PREFIX"p ", 3)) {
       struct play_cmd_obj *pobj = malloc(sizeof(struct play_cmd_obj));
       pobj->dis = dis;
       pobj->ret = ret;
