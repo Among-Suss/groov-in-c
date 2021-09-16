@@ -19,6 +19,7 @@
         "wait.h": "c",
         "hash_map": "c",
         "chrono": "c",
-        "algorithm": "c"
+        "algorithm": "c",
+        "media.structs.h": "c"
     }
 }

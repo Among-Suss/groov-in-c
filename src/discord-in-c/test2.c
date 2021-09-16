@@ -6,10 +6,6 @@
 
 #define BOT_PREFIX "-"
 
-//char *serverid = "807911659078680576";
-//char *channelid = "857087599557607466";
-//char *channel2 = "807911659078680580";
-//char *textchannelid = "816227774531502111";
 char *bottoken;
 
 //media_player_t *media;
