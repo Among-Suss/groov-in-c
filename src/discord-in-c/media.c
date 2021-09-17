@@ -490,7 +490,7 @@ int rtp_send_file(const char *filename, const char *dest, const char *port, cons
   return ret;
 }
 
-void get_youtube_audio_url(char *video_id, char *url) {
+int get_youtube_audio_url(char *video_id, char *url) {
   int pipeids[2];
 
   if (video_id == NULL) {
@@ -516,15 +516,20 @@ void get_youtube_audio_url(char *video_id, char *url) {
     execvp(argv[0], argv);
   }
   close(pipeids[1]);
+  int retval = 0;
+  waitpid(pid, &retval, 0);
+  if (retval) return -1;
+
   char str[MAX_URL_LEN_MEDIA];
   int len = read(pipeids[0], str, MAX_URL_LEN_MEDIA);
   str[len] = 0;
   close(pipeids[0]);
-  waitpid(pid, NULL, 0);
 
   char *urlendp = strstr(str, "\n");
   *urlendp = 0;
   strcpy(url, str);
+
+  return 0;
 }
 
 void *ffmpeg_process_waiter(void *ptr) {
@@ -550,7 +555,8 @@ void play_youtube_url(char *youtube_link, char *key_str, char *ssrc_str,
   int fd = open(cache_file_unique_name, O_CREAT | O_RDWR | O_TRUNC, 0644);
   close(fd);
 
-  get_youtube_audio_url(youtube_link, url);
+  int ret = get_youtube_audio_url(youtube_link, url);
+  if (ret) return;
 
   pid_t pid;
   if ((pid = fork()) == 0) {
@@ -795,7 +801,7 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
   return 0;
 }
 
-void get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
+int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   int pipeids[2];
 
   if (query == NULL) {
@@ -821,7 +827,9 @@ void get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
     execvp(argv[0], argv);
   }
   close(pipeids[1]);
-  waitpid(pid, NULL, 0);
+  int retval = 0;
+  waitpid(pid, &retval, 0);
+  if (retval) return -1;
 
   char str[sizeof(ytobjptr->title) + sizeof(ytobjptr->link) - 64 + sizeof(ytobjptr->description)];
   long unsigned len = read(pipeids[0], str, sizeof(str));
@@ -843,8 +851,11 @@ void get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   strncpy(ytobjptr->title, str, sizeof(ytobjptr->title));
   snprintf(ytobjptr->link, sizeof(ytobjptr->link), "https://www.youtube.com/watch?v=%s", uid);
   strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description));
+
+  return 0;
 }
 
+/*
 void *threaded_youtube_info_query(void *ptr){
   pthread_detach(pthread_self());
 
@@ -857,7 +868,6 @@ void *threaded_youtube_info_query(void *ptr){
 
   return 0;
 }
-
 void insert_queue_ydl_query(media_player_t *media, char *ydl_query){
   youtube_page_object_t ytobj;
   strncpy(ytobj.query, ydl_query, sizeof(ytobj.query));
@@ -868,8 +878,18 @@ void insert_queue_ydl_query(media_player_t *media, char *ydl_query){
   pthread_t tid;
   pthread_create(&tid, NULL, threaded_youtube_info_query, media);
 }
+*/
 
+int insert_queue_ydl_query(media_player_t *media, char *ydl_query){
+  youtube_page_object_t ytobj;
+  strncpy(ytobj.query, ydl_query, sizeof(ytobj.query));
 
+  int ret = get_youtube_vid_info(ydl_query, &ytobj);
+  if (ret) return -1;
+
+  sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
+  return 0;
+}
 
 
 
