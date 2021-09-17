@@ -641,6 +641,8 @@ void *media_player_threaded(void *ptr){
   pthread_detach(pthread_self());
   youtube_player_t *yptr = (youtube_player_t *)ptr;
 
+  yptr->media_player_t_ptr->initialized = 1;
+
   youtube_page_object_t ytpobj;
   char link[sizeof(ytpobj)];
   while(sem_trywait(&(yptr->media_player_t_ptr->quitter)) < 0){

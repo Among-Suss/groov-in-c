@@ -28,6 +28,8 @@ typedef struct media_player_t{
   pid_t player_thread_id;
 
   sem_t quitter;
+
+  int initialized;
 } media_player_t;
 
 typedef struct youtube_player_t{

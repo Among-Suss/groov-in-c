@@ -222,7 +222,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   }
 
   user_vc_obj uobj;
-  sm_get(dis->user_vc_map, userid, (char *)&uobj, sizeof(uobj));
+  int has_user = sm_get(dis->user_vc_map, userid, (char *)&uobj, sizeof(uobj));
   fprintf(stdout, "\n\nUSER IN CHANNEL: %s, guild: %s\n\n", uobj.vc_id, uobj.guild_id);
 
   msg[msg_len] = 0;
@@ -230,7 +230,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     msg++;
   }
 
-  if (strcasestr(msg, "MESSAGE_CREATE")) {
+  if (strcasestr(msg, "MESSAGE_CREATE") && has_user) {
     char *content = strcasestr(msg, "content") + 10;
     char *end = strchr(content, ',') - 1;
     *end = 0;
@@ -247,7 +247,8 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
     fprintf(stdout, "\n%s %d\n", content, ret);
 
-    if(!strncasecmp(content, BOT_PREFIX"leave", 6) && ret){
+    if(!strncasecmp(content, BOT_PREFIX"leave", 6) && ret
+        && vgt && vgt->media && vgt->media->initialized){
       fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
       sem_post(&(vgt->media->quitter));
       youtube_page_object_t yobj = { 0 };
@@ -406,7 +407,7 @@ int main(int argc, char **argv) {
   sem_init(&(play_cmd_mutex), 0, 1);
 
   bottoken = argv[1];
-  discord_t *discord = init_discord(argv[1], "643");
+  discord_t *discord = init_discord(argv[1], "641");
 
   char buf[100];
   sm_get(discord->data_dictionary, DISCORD_HOSTNAME_KEY, buf, 100);
