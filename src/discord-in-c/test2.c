@@ -285,10 +285,11 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
                                           DISCORD_PORT, strlen(DISCORD_PORT));
 
       char message[5500];
-      youtube_page_object_t ytpobj;
-      sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 1);
       
       if(vgt->media && vgt->media->playing){
+        youtube_page_object_t ytpobj;
+        sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
+
         char text[sizeof(ytpobj.description)];
         char text2[sizeof(ytpobj.description)];
 
@@ -329,9 +330,11 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
                                           DISCORD_PORT, strlen(DISCORD_PORT));
       char message[5500];
-      youtube_page_object_t ytpobj;
-      sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 1);
+      
       if(vgt->media && vgt->media->playing){
+        youtube_page_object_t ytpobj;
+        sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
+
         char text3[sizeof(ytpobj.title)];
         char text4[sizeof(ytpobj.title)];
 
@@ -358,9 +361,10 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
                                           DISCORD_PORT, strlen(DISCORD_PORT));
       char message[5500];
-      youtube_page_object_t ytpobj;
-      sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 1);
+      
       if(vgt->media && vgt->media->playing){
+        youtube_page_object_t ytpobj;
+        sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
         //snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", ytpobj.title, ytpobj.link, "");
         snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Sorry, this function is not yet implemented!");
       }
