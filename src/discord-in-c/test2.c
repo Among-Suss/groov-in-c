@@ -6,6 +6,7 @@
 #include "cJSON.h"
 
 char *bottoken;
+char botprefix[10];
 
 //media_player_t *media;
 
@@ -252,6 +253,11 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   }
 
   if (strcasestr(msg, "\"MESSAGE_CREATE\"")){
+    char *content = strcasestr(msg, "content") + 10;
+    if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "prefix", 6)){
+      botprefix[0] = *(content + 8);
+      return;
+    }
 
     char *userid = strcasestr(msg, DISCORD_GATEWAY_VOICE_USERNAME);
     char *userid_cp = 0;
@@ -293,13 +299,12 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     }
 
     if (has_user) {
-      char *content = strcasestr(msg, "content") + 10;
       char *end = strchr(content, ',') - 1;
       *end = 0;
 
       voice_gateway_t *vgt = 0;
       int ret = 1;
-      if (!strncasecmp(content, BOT_PREFIX, 1)){
+      if (!strncasecmp(content, botprefix, 1)){
         sm_get(dis->voice_gateway_map, uobj.guild_id, (char *)&vgt,
               sizeof(void *));
         if(!vgt){
@@ -309,7 +314,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
       fprintf(stdout, "\n%s %d\n", content, ret);
 
-      if(!strncasecmp(content, BOT_PREFIX"leave", 6) && ret
+      if((content[0] == botprefix[0]) && !strncasecmp(content+1, "leave", 5) && ret
           && vgt && vgt->media && vgt->media->initialized){
         
         sem_wait(&(vgt->media->insert_song_mutex));
@@ -338,11 +343,11 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
         free_voice_gateway(vgt);
         fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
-      }else if (!strncasecmp(content, BOT_PREFIX"skip", 5) && ret){
+      }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "skip", 4) && ret){
         
         sem_post(&(vgt->media->skipper));
 
-      } else if (!strncasecmp(content, BOT_PREFIX"desc", 5) && ret){
+      } else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "desc", 4) && ret){
 
         fprintf(stdout, "\ntrying to send msg...\n");
         
@@ -389,7 +394,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         send_raw(dis->https_api_ssl, buffer,
             strlen(buffer));
 
-      }else if (!strncasecmp(content, BOT_PREFIX"np", 3) && ret){
+      }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "np", 2) && ret){
 
         fprintf(stdout, "\ntrying to send msg...\n");
         ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
@@ -443,7 +448,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         send_raw(dis->https_api_ssl, buffer,
             strlen(buffer));
 
-      }else if (!strncasecmp(content, BOT_PREFIX"queue", 6) && ret){
+      }else if ((content[0] == botprefix[0]) && !strncasecmp(content + 1, "queue", 5) && ret){
 
         fprintf(stdout, "\ntrying to send msg...\n");
         ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
@@ -475,7 +480,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         send_raw(dis->https_api_ssl, buffer,
             strlen(buffer));
 
-      }else if (!strncasecmp(content, BOT_PREFIX"p ", 3)) {
+      }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "p ", 2)) {
         struct play_cmd_obj *pobj = malloc(sizeof(struct play_cmd_obj));
         pobj->dis = dis;
         pobj->ret = ret;
@@ -502,6 +507,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 }
 
 int main(int argc, char **argv) {
+  strcpy(botprefix, BOT_PREFIX);
   sem_init(&(play_cmd_mutex), 0, 1);
 
   if (argc > 1) {
