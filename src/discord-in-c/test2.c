@@ -5,8 +5,6 @@
 #include "media.structs.h"
 #include "cJSON.h"
 
-#define BOT_PREFIX "-"
-
 char *bottoken;
 
 //media_player_t *media;
@@ -502,8 +500,14 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 int main(int argc, char **argv) {
   sem_init(&(play_cmd_mutex), 0, 1);
 
-  bottoken = argv[1];
-  discord_t *discord = init_discord(argv[1], "641");
+  if (argc > 1) {
+    bottoken = argv[1];
+  } else {
+    bottoken = getenv("TOKEN");
+  }
+  discord_t *discord = init_discord(bottoken, "641");
+
+  fprintf(stdout, "Token: %s\n", BOT_PREFIX"");
 
   char buf[100];
   sm_get(discord->data_dictionary, DISCORD_HOSTNAME_KEY, buf, 100);
