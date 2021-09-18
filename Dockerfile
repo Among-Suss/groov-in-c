@@ -20,6 +20,6 @@ ENV TOKEN=${TOKEN}
 ARG BOT_PREFIX=${BOT_PREFIX:-""}
 ENV BOT_PREFIX=${BOT_PREFIX}
 
-RUN make test2
+RUN make -B test2
 
 CMD ["./test2"]
