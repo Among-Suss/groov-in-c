@@ -215,14 +215,17 @@ void update_voice_state(discord_t *discord, char *msg) {
       }
       sem_post(&(vgt->ready_state_update));
     }
-  }else if(channel_id){
+  }else{
     user_vc_obj uobj = { 0 };
     strncpy(uobj.guild_id, guild_id, sizeof(uobj.guild_id) - 2);
-    strncpy(uobj.vc_id, channel_id, sizeof(uobj.vc_id) - 2);
+    if(channel_id){
+      strncpy(uobj.vc_id, channel_id, sizeof(uobj.vc_id) - 2);
+    }else{
+      uobj.vc_id[0] = 0;
+    }
     strncpy(uobj.user_id, botid, sizeof(uobj.user_id) - 2);
 
     fprintf(stdout, "\n\nupdating user vc:%s\n\n", uobj.vc_id);
-
     sm_put(discord->user_vc_map, uobj.user_id, (char *)&uobj, sizeof(uobj));
   }
 

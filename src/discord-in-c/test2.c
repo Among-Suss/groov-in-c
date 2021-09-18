@@ -10,6 +10,11 @@ char botprefix[10];
 
 sem_t play_cmd_mutex;
 
+/* Helper Functions for sending strings in JSON
+ *
+ *  - these functions are necessary to escape out json string properly
+ * 
+ */
 void escape_http_newline(char *input, long unsigned in_size, char *output, long unsigned out_size){
   char *desc_after   = input;
   char *desc_before  = input;
@@ -42,7 +47,6 @@ void escape_http_newline(char *input, long unsigned in_size, char *output, long 
 
   output[out_size - 1] = 0;
 }
-
 void escape_http_doublequote(char *input, long unsigned in_size, char *output, long unsigned out_size){
   char *desc_after   = input;
   char *desc_before  = input;
@@ -75,7 +79,6 @@ void escape_http_doublequote(char *input, long unsigned in_size, char *output, l
 
   output[out_size - 1] = 0;
 }
-
 void fix_string_ending(char *str){
   int length = strlen(str);
   unsigned char *working = ((unsigned char *)str) + length - 1;
@@ -92,6 +95,11 @@ void fix_string_ending(char *str){
     *working = 0;
 }
 
+/*  Voice reconnect callback
+ *
+ *  This function is called when bot needs to reconnect.
+ *  Use this function to reconnect the MEDIA PLAYER
+ */
 void on_reconnect_voice(void *state, char *msg, unsigned long msg_len) {
   fprintf(stdout, "\n\non_reconnect_voice RECONNECTING MEDIA\n\n");
 
@@ -113,13 +121,22 @@ void on_reconnect_voice(void *state, char *msg, unsigned long msg_len) {
                             "audiotmpfile.out", vgt);
 }
 
+/* Voice Gateway callback.
+ *
+ * Not much to do here
+ * 
+ */
 void on_message(void *state, char *msg, unsigned long msg_len) {
   write(STDOUT_FILENO, msg, msg_len);
   write(STDOUT_FILENO, "yayay \n", strlen("yayay \n"));
 }
 
-int counter1 = 0;
 
+/* Connect bot/queue song in a thread.
+ *
+ * needs threaded model because connection needs to continue receiving websocket while connecting...
+ * 
+ */
 struct play_cmd_obj{
   int ret;
   voice_gateway_t *vgt;
@@ -127,7 +144,6 @@ struct play_cmd_obj{
   user_vc_obj uobj;
   char *content;
 };
-
 void *threaded_play_cmd(void *ptr){
   pthread_detach(pthread_self());
 
@@ -184,6 +200,9 @@ void *threaded_play_cmd(void *ptr){
   return NULL;
 }
 
+/* This function handles collecting titles from the queue
+ *
+ */
 void get_queue_callback(void *value, int len, void *state, int pos, int start, int end){
   char **array = state;
   youtube_page_object_t *ytobj = value;
@@ -200,6 +219,11 @@ void get_queue_callback(void *value, int len, void *state, int pos, int start, i
   memcpy(array[pos - start], text4, len);
 }
 
+/* Adds users that is in VC to the databse.
+ *
+ * bot needs to know who is in VC...
+ * 
+ */
 void add_user_vc_record(discord_t *discord, char *msg, int msg_len){
   cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
   cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
@@ -238,25 +262,73 @@ void add_user_vc_record(discord_t *discord, char *msg, int msg_len){
   cJSON_Delete(cjs);
 }
 
+/* Simple sending message to discord
+ *
+ *
+ * 
+ */
+void simple_send_msg(discord_t *dis, char *text, char *textchannelid){
+  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                                            DISCORD_PORT, strlen(DISCORD_PORT));
+  char message[4000];
+  snprintf(message, 4000, DISCORD_API_POST_BODY_MSG_SIMPLE, text);
+  char header[2000];
+  snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
+  char buffer[5000];
+  snprintf(buffer, 5000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+  send_raw(dis->https_api_ssl, buffer,
+            strlen(buffer));
+}
 
+/* Gateway callback. handle all messages
+ *
+ * messages should be checked for proper tags...
+ * 
+ */
 void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   discord_t *dis = state;
 
   write(STDOUT_FILENO, msg, msg_len);
   write(STDOUT_FILENO, "WOW WOW WOW\n", strlen("WOW WOW WOW\n"));
 
+  //handle adding members on startup
   if (strcasestr(msg, "\"GUILD_CREATE\"")){
     add_user_vc_record(dis, msg, msg_len);
     return;
   }
 
+  if (strstr(msg, "HelloFromTheOtherSide1234")){
+    send_websocket(dis->gateway_ssl,
+            "request \"\"\" close",
+            strlen("request close"),
+            8);
+    return;
+  }
+
+  //if someone sends a message
   if (strcasestr(msg, "\"MESSAGE_CREATE\"")){
     char *content = strcasestr(msg, "content") + 10;
+
+    //handle bot prefix changing
     if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "prefix", 6)){
       botprefix[0] = *(content + 8);
       return;
     }
 
+    //get guild_id
+    char *guildid = strcasestr(msg, "guild_id\"");
+    guildid += 11;
+    char *guildid_cp = 0;
+    char *end = strchr(guildid, '"');
+    *end = 0;
+    guildid_cp = malloc(strlen(guildid) + 1);
+    strcpy(guildid_cp, guildid);
+    *end = '"';
+    guildid = guildid_cp;
+    fprintf(stdout, "\n\nDETECTED guild id: %s\n\n", guildid);
+    
+
+    //get the user id of the person sending message
     char *userid = strcasestr(msg, DISCORD_GATEWAY_VOICE_USERNAME);
     char *userid_cp = 0;
     if(userid){
@@ -271,6 +343,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       fprintf(stdout, "\n\nDETECTED USER: %s\n\n", userid);
     }
 
+    //get channel id of the text channel where the message was sent
     char *textchannelid_nw = 0;
     char *textchannelid = strcasestr(msg, DISCORD_GATEWAY_MSG_CHANNEL_ID);;
     if(textchannelid){
@@ -287,28 +360,24 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       fprintf(stdout, "\n\nTEXT CHANNEL: %s\n\n", textchannelid);
     }
 
+    //collect user info from USER INFO MAP
     user_vc_obj uobj;
     int has_user = sm_get(dis->user_vc_map, userid, (char *)&uobj, sizeof(uobj));
     fprintf(stdout, "\n\nUSER IN CHANNEL: %s, guild: %s\n\n", uobj.vc_id, uobj.guild_id);
 
-    msg[msg_len] = 0;
-    while(*msg == ' '){
-      msg++;
-    }
-
-    if (has_user) {
+    //if the user is mapped, then handle bot commands
+    if (has_user && (uobj.vc_id[0] != 0) && !strcmp(uobj.guild_id, guildid)) {
       char *end = strchr(content, ',') - 1;
       *end = 0;
 
       voice_gateway_t *vgt = 0;
       int ret = 1;
-      if (!strncasecmp(content, botprefix, 1)){
-        sm_get(dis->voice_gateway_map, uobj.guild_id, (char *)&vgt,
-              sizeof(void *));
-        if(!vgt){
-          ret = 0;
-        }
+      sm_get(dis->voice_gateway_map, uobj.guild_id, (char *)&vgt,
+            sizeof(void *));
+      if(!vgt){
+        ret = 0;
       }
+      
 
       fprintf(stdout, "\n%s %d\n", content, ret);
 
@@ -316,10 +385,13 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
           && vgt && vgt->media && vgt->media->initialized){
         
         sem_wait(&(vgt->media->insert_song_mutex));
+
         fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
-        sem_post(&(vgt->media->quitter));
+        
         youtube_page_object_t yobj = { 0 };
         sbuf_insert_front_value((&(vgt->media->song_queue)), &yobj, sizeof(yobj));
+
+        sem_post(&(vgt->media->quitter));
         sem_post(&(vgt->media->skipper));
 
         fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
@@ -341,11 +413,13 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
         free_voice_gateway(vgt);
         fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
-      }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "skip", 4) && ret){
+      }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "skip", 4) && ret 
+              && vgt && vgt->media && vgt->media->playing){
         
         sem_post(&(vgt->media->skipper));
 
-      } else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "desc", 4) && ret){
+      } else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "desc", 4) && ret
+              && vgt && vgt->media && vgt->media->playing){
 
         fprintf(stdout, "\ntrying to send msg...\n");
         
@@ -392,7 +466,8 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         send_raw(dis->https_api_ssl, buffer,
             strlen(buffer));
 
-      }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "np", 2) && ret){
+      }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "np", 2) && ret
+                  && vgt && vgt->media && vgt->media->playing){
 
         fprintf(stdout, "\ntrying to send msg...\n");
         ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
@@ -446,7 +521,8 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         send_raw(dis->https_api_ssl, buffer,
             strlen(buffer));
 
-      }else if ((content[0] == botprefix[0]) && !strncasecmp(content + 1, "queue", 5) && ret){
+      }else if ((content[0] == botprefix[0]) && !strncasecmp(content + 1, "queue", 5) && ret
+                && vgt && vgt->media && vgt->media->initialized){
 
         fprintf(stdout, "\ntrying to send msg...\n");
         ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
@@ -490,11 +566,27 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
         pthread_t tid;
         pthread_create(&tid, NULL, threaded_play_cmd, pobj);
+      }else if(!(vgt && vgt->media && vgt->media->playing) &&
+                (!strncasecmp(content, botprefix, 1) && 
+          (!strncasecmp(content+1, "p ", 2) || !strncasecmp(content + 1, "queue", 5) ||
+          !strncasecmp(content+1, "np", 2) || !strncasecmp(content+1, "desc", 4)
+          || !strncasecmp(content+1, "skip", 4) || !strncasecmp(content+1, "leave", 5)))){
+        simple_send_msg(dis, "No song playing!", textchannelid);
+      }
+    }else{
+      if (!strncasecmp(content, botprefix, 1) && 
+      (!strncasecmp(content+1, "p ", 2) || !strncasecmp(content + 1, "queue", 5) ||
+          !strncasecmp(content+1, "np", 2) || !strncasecmp(content+1, "desc", 4)
+          || !strncasecmp(content+1, "skip", 4) || !strncasecmp(content+1, "leave", 5))){
+        simple_send_msg(dis, "You must be in a voice channel!", textchannelid);
       }
     }
 
     if(userid_cp){
       free(userid_cp);
+    }
+    if(guildid_cp){
+      free(guildid_cp);
     }
     if(textchannelid_nw){
       free(textchannelid_nw);
