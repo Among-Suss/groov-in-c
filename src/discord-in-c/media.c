@@ -503,11 +503,12 @@ int get_youtube_audio_url(char *video_id, char *url) {
 
     char *argv[10];
     argv[0] = "youtube-dl";
-    argv[1] = "-g";
-    argv[2] = "-f";
-    argv[3] = "bestaudio[ext=m4a]";
-    argv[4] = video_id;
-    argv[5] = 0;
+    argv[1] = "--no-playlist";
+    argv[2] = "-g";
+    argv[3] = "-f";
+    argv[4] = "bestaudio[ext=m4a]";
+    argv[5] = video_id;
+    argv[6] = 0;
 
     execvp(argv[0], argv);
   }
@@ -838,15 +839,16 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
 
     char *argv[16];
     argv[0] = "youtube-dl";
-    argv[1] = "--get-id";
-    argv[2] = "-e";
-    argv[3] = "--get-description";
-    argv[4] = "--get-duration";
-    argv[5] = "-g";
-    argv[6] = "-f";
-    argv[7] = "bestaudio[ext=m4a]";
-    argv[8] = query;
-    argv[9] = 0;
+    argv[1] = "--no-playlist";
+    argv[2] = "--get-id";
+    argv[3] = "-e";
+    argv[4] = "--get-description";
+    argv[5] = "--get-duration";
+    argv[6] = "-g";
+    argv[7] = "-f";
+    argv[8] = "bestaudio[ext=m4a]";
+    argv[9] = query;
+    argv[10] = 0;
 
     execvp(argv[0], argv);
   }
