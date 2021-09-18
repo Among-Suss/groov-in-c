@@ -884,11 +884,11 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   *duration = 0;
   duration++;
 
-  strncpy(ytobjptr->title, str, sizeof(ytobjptr->title));
-  strncpy(ytobjptr->audio_url, audio_url, sizeof(ytobjptr->audio_url));
+  strncpy(ytobjptr->title, str, sizeof(ytobjptr->title) - 2);
+  strncpy(ytobjptr->audio_url, audio_url, sizeof(ytobjptr->audio_url) - 2);
   snprintf(ytobjptr->link, sizeof(ytobjptr->link), "https://www.youtube.com/watch?v=%s", uid);
-  strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description));
-  strncpy(ytobjptr->duration, duration, sizeof(ytobjptr->duration));
+  strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description) - 2);
+  strncpy(ytobjptr->duration, duration, sizeof(ytobjptr->duration) - 2);
 
   fprintf(stdout, "\n\nVID DURATION IN SECONDS: %s\n\n", duration);
 
@@ -919,7 +919,7 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query){
   sem_wait(&(media->insert_song_mutex)); //necessary to fix -leave cmd
 
   youtube_page_object_t ytobj;
-  strncpy(ytobj.query, ydl_query, sizeof(ytobj.query));
+  strncpy(ytobj.query, ydl_query, sizeof(ytobj.query) - 2);
 
   int ret = get_youtube_vid_info(ydl_query, &ytobj);
 

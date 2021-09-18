@@ -217,9 +217,9 @@ void update_voice_state(discord_t *discord, char *msg) {
     }
   }else if(channel_id){
     user_vc_obj uobj = { 0 };
-    strncpy(uobj.guild_id, guild_id, sizeof(uobj.guild_id));
-    strncpy(uobj.vc_id, channel_id, sizeof(uobj.vc_id));
-    strncpy(uobj.user_id, botid, sizeof(uobj.user_id));
+    strncpy(uobj.guild_id, guild_id, sizeof(uobj.guild_id) - 2);
+    strncpy(uobj.vc_id, channel_id, sizeof(uobj.vc_id) - 2);
+    strncpy(uobj.user_id, botid, sizeof(uobj.user_id) - 2);
 
     fprintf(stdout, "\n\nupdating user vc:%s\n\n", uobj.vc_id);
 
@@ -362,9 +362,9 @@ void authenticate_gateway(discord_t *discord, char *discord_intent) {
   sm_get(discord->data_dictionary, BOT_TOKEN_KEY, bot_token, MAX_BOT_TOKEN_LEN);
 
   int auth_str_len = strlen(DISCORD_GATEWAY_AUTH_STRING);
-  char msg[MAX_BOT_TOKEN_LEN + auth_str_len];
+  char msg[MAX_BOT_TOKEN_LEN + auth_str_len + MAX_GATEWAY_INTENT_LEN];
 
-  snprintf(msg, MAX_BOT_TOKEN_LEN + auth_str_len, DISCORD_GATEWAY_AUTH_STRING, bot_token, discord_intent);
+  snprintf(msg, sizeof(msg), DISCORD_GATEWAY_AUTH_STRING, bot_token, discord_intent);
 
   sem_wait(&(discord->gateway_writer_mutex));
   send_websocket(discord->gateway_ssl, msg, strlen(msg),

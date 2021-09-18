@@ -458,6 +458,10 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
           snprintf(inner_message, 5000, "1. %s\\n2. %s\\n3. %s\\n4. %s\\n5. %s\\n",
                   title_arr[0], title_arr[1], title_arr[2], title_arr[3], title_arr[4]);
 
+          for(int i = 0; i < 5; i++){
+            free(title_arr[i]);
+          }
+
           snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "Song Queue:", "Up next on the playlist...", inner_message, "To see more songs, use \\\"queue [page number]\\\"");
         }
         else{
