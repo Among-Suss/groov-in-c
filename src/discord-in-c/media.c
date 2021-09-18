@@ -355,6 +355,7 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
     if (read_test_len == 1) {
       lseek(in_fd, -1, SEEK_CUR);
     }else{
+      clock_gettime(CLOCK_REALTIME, &(media_obj_ptr->song_start_time));
       wait_for_time_slot(20000000, &state);
       continue;
     }
@@ -840,11 +841,12 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
     argv[1] = "--get-id";
     argv[2] = "-e";
     argv[3] = "--get-description";
-    argv[4] = "-g";
-    argv[5] = "-f";
-    argv[6] = "bestaudio[ext=m4a]";
-    argv[7] = query;
-    argv[8] = 0;
+    argv[4] = "--get-duration";
+    argv[5] = "-g";
+    argv[6] = "-f";
+    argv[7] = "bestaudio[ext=m4a]";
+    argv[8] = query;
+    argv[9] = 0;
 
     execvp(argv[0], argv);
   }
@@ -874,10 +876,37 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   *desc = 0;
   desc++;
 
+  char *duration = strrchr(desc, '\n');
+  *duration = 0;
+  duration = strrchr(desc, '\n');
+  *duration = 0;
+  duration++;
+
   strncpy(ytobjptr->title, str, sizeof(ytobjptr->title));
   strncpy(ytobjptr->audio_url, audio_url, sizeof(ytobjptr->audio_url));
   snprintf(ytobjptr->link, sizeof(ytobjptr->link), "https://www.youtube.com/watch?v=%s", uid);
   strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description));
+  strncpy(ytobjptr->duration, duration, sizeof(ytobjptr->duration));
+
+  fprintf(stdout, "\n\nVID DURATION IN SECONDS: %s\n\n", duration);
+
+  char *time_sep = strchr(duration, ':');
+  if(!time_sep){
+    ytobjptr->length_in_seconds = atoi(duration);
+  }else{
+    *time_sep = 0;
+    time_sep++;
+    char *time_sep2 = strchr(time_sep, ':');
+    if(!time_sep2){
+      ytobjptr->length_in_seconds = 60 * atoi(duration) + atoi(time_sep);
+    }else{
+      *time_sep2 = 0;
+      time_sep2++;
+      ytobjptr->length_in_seconds = 60 * 60 * atoi(duration) + 60 * atoi(time_sep) + atoi(time_sep2);
+    }
+  }
+  
+  fprintf(stdout, "\n\nVID DURATION IN SECONDS: %d\n\n", ytobjptr->length_in_seconds);
 
   clock_gettime(CLOCK_REALTIME, &(ytobjptr->audio_url_create_date));
 

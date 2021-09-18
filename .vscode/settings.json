@@ -20,6 +20,13 @@
         "hash_map": "c",
         "chrono": "c",
         "algorithm": "c",
-        "media.structs.h": "c"
+        "media.structs.h": "c",
+        "array": "c",
+        "deque": "c",
+        "list": "c",
+        "unordered_map": "c",
+        "unordered_set": "c",
+        "initializer_list": "c",
+        "valarray": "c"
     }
 }

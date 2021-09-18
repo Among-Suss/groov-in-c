@@ -187,6 +187,22 @@ void *threaded_play_cmd(void *ptr){
   return NULL;
 }
 
+void get_queue_callback(void *value, int len, void *state, int pos, int start, int end){
+  char **array = state;
+  youtube_page_object_t *ytobj = value;
+
+  array[pos - start] = malloc(len);
+
+  char text3[sizeof(ytobj->title)];
+  char text4[sizeof(ytobj->title)];
+
+  escape_http_newline(ytobj->title, sizeof(ytobj->title), text3, sizeof(ytobj->title));
+  escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
+  fix_string_ending(text4);
+
+  memcpy(array[pos - start], text4, len);
+}
+
 void add_user_vc_record(discord_t *discord, char *msg, int msg_len){
   cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
   cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
@@ -335,7 +351,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
                                             DISCORD_PORT, strlen(DISCORD_PORT));
 
-        char message[5500];
+        char message[9500];
         
         if(vgt->media && vgt->media->playing){
           youtube_page_object_t ytpobj;
@@ -360,17 +376,17 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
           escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
           fix_string_ending(text4);
 
-          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", text4, ytpobj.link, text2);
-          //snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
+          snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", text4, ytpobj.link, text2);
+          //snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
         }
         else{
-          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
+          snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
         }
 
         char header[2000];
         snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
-        char buffer[9000];
-        snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+        char buffer[13000];
+        snprintf(buffer, 13000, "%s\r\n\r\n%s\r\n\r\n", header, message);
         fprintf(stdout, buffer);
         send_raw(dis->https_api_ssl, buffer,
             strlen(buffer));
@@ -380,7 +396,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         fprintf(stdout, "\ntrying to send msg...\n");
         ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
                                             DISCORD_PORT, strlen(DISCORD_PORT));
-        char message[5500];
+        char message[9500];
         
         if(vgt->media && vgt->media->playing){
           youtube_page_object_t ytpobj;
@@ -393,15 +409,38 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
           escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
           fix_string_ending(text4);
 
-          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", text4, ytpobj.link, "");
+
+          struct timespec now;
+          clock_gettime(CLOCK_REALTIME, &now);
+          long lapse = now.tv_sec - vgt->media->song_start_time.tv_sec;
+
+          fprintf(stdout, "lapse: %ld\n", lapse);
+          
+          #define barsize 40
+          char bar[barsize] = {0};
+          long progress = (barsize-1) * lapse / (ytpobj.length_in_seconds);
+          for(int i = 0; i < barsize; i++){
+            if(i < progress)
+              strcat(bar, "#");
+            else
+              strcat(bar, "-");
+          }
+
+          fprintf(stdout, "bar: %s\n", bar);
+
+          char time_str[200] = {0};
+          snprintf(time_str, sizeof(time_str), "%ld:%ld:%ld [%s] %s", lapse / 3600, (lapse / 60) % 60, lapse % 60, bar, ytpobj.duration);
+
+
+          snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", text4, ytpobj.link, time_str);
         }
         else{
-          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
+          snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
         }
         char header[2000];
         snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
-        char buffer[9000];
-        snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+        char buffer[13000];
+        snprintf(buffer, 13000, "%s\r\n\r\n%s\r\n\r\n", header, message);
         fprintf(stdout, buffer);
         send_raw(dis->https_api_ssl, buffer,
             strlen(buffer));
@@ -411,21 +450,25 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         fprintf(stdout, "\ntrying to send msg...\n");
         ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
                                             DISCORD_PORT, strlen(DISCORD_PORT));
-        char message[5500];
+        char message[9500];
         
         if(vgt->media && vgt->media->playing){
-          youtube_page_object_t ytpobj;
-          sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
-          //snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", ytpobj.title, ytpobj.link, "");
-          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Sorry, this function is not yet implemented!");
+          char *(title_arr[5]) = { 0 };
+          sbuf_iterate(&(vgt->media->song_queue), get_queue_callback, title_arr, 0, 4);
+
+          char inner_message[5000];
+          snprintf(inner_message, 5000, "1. %s\\n2. %s\\n3. %s\\n4. %s\\n5. %s\\n",
+                  title_arr[0], title_arr[1], title_arr[2], title_arr[3], title_arr[4]);
+
+          snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "Song Queue:", "Up next on the playlist...", inner_message, "To see more songs, use \\\"queue [page number]\\\"");
         }
         else{
-          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Sorry, this function is not yet implemented!");
+          snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_SIMPLE, "No song playing!");
         }
         char header[2000];
         snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
-        char buffer[9000];
-        snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+        char buffer[13000];
+        snprintf(buffer, 13000, "%s\r\n\r\n%s\r\n\r\n", header, message);
         fprintf(stdout, buffer);
         send_raw(dis->https_api_ssl, buffer,
             strlen(buffer));
@@ -468,23 +511,6 @@ int main(int argc, char **argv) {
 
   set_gateway_callback(discord, actually_do_shit);
   connect_gateway(discord);
-/*
-  voice_gateway_t *vgt = connect_voice_gateway(discord, serverid, channelid,
-                        on_message, on_reconnect_voice);
-
-  char secret_key[1000];
-  char ip[100];
-  char port[100];
-  char *ssrc = "66666";
-
-  sm_get(vgt->data_dictionary, DISCORD_VOICE_IP, ip, 100);
-  sm_get(vgt->data_dictionary, DISCORD_VOICE_PORT, port, 100);
-  sm_get(vgt->data_dictionary, DISCORD_VOICE_SECRET_KEY, secret_key, 1000);
-
-  media = start_player(secret_key, ssrc,
-                            ip, port, vgt->voice_udp_sockfd,
-                            "audiotmpfile.out", vgt);
-*/
 
   while (1)
     sleep(100);

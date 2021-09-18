@@ -11,6 +11,7 @@
 
 //linked list node structure
 typedef struct linked_node_t linked_node_t;
+typedef void (*sbuf_iterate_callback_f)(void *value, int len, void *state, int pos, int start_pos, int end_pos);
 
 
 //sbuf object
@@ -95,3 +96,8 @@ void *sbuf_peek_end_value(struct sbuf_t *sp, void *retval, int len,
  */
 void sbuf_removal_lock(struct sbuf_t *sp);
 void sbuf_removal_unlock(struct sbuf_t *sp);
+
+void sbuf_insert_value_position(struct sbuf_t *sp, void *value, int len, int position);
+void *sbuf_remove_front_value(struct sbuf_t *sp, void *retval, int len,
+                           int lockitem);
+void sbuf_iterate(struct sbuf_t *sp, sbuf_iterate_callback_f callback, void *state, int start_pos, int end_pos);
