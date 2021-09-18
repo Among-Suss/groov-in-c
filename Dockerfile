@@ -1,8 +1,7 @@
 FROM archlinux
 
-RUN pacman -Syy --noconfirm
-RUN pacman -S --noconfirm make ffmpeg youtube-dl libsodium opus
-RUN pacman -S --noconfirm gcc
+RUN pacman -Syu --noconfirm
+RUN pacman -S --noconfirm gcc make ffmpeg youtube-dl libsodium opus
 
 USER root
 
