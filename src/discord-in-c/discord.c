@@ -324,25 +324,25 @@ void internal_gateway_callback(SSL *ssl, void *state, char *msg,
   }
 
   if (strcasestr(msg, DISCORD_GATEWAY_READY)) {
-    write(STDOUT_FILENO, msg, msg_len);
-    write(STDOUT_FILENO, "\n", 1);
-    gateway_ready(discord, msg);
-    return;
+    char *msg_tmp = malloc(msg_len + 2);
+    memcpy(msg_tmp, msg, msg_len + 1);
+    gateway_ready(discord, msg_tmp);
+    free(msg_tmp);
   }
 
   
   if (strcasestr(msg, DISCORD_GATEWAY_VOICE_STATE_UPDATE)) {
-    write(STDOUT_FILENO, msg, msg_len);
-    write(STDOUT_FILENO, "\n", 1);
-    update_voice_state(discord, msg);
-    return;
+    char *msg_tmp = malloc(msg_len + 2);
+    memcpy(msg_tmp, msg, msg_len + 1);
+    update_voice_state(discord, msg_tmp);
+    free(msg_tmp);
   }
 
   if (strcasestr(msg, DISCORD_GATEWAY_VOICE_SERVER_UPDATE)) {
-    write(STDOUT_FILENO, msg, msg_len);
-    write(STDOUT_FILENO, "\n", 1);
-    update_voice_server(discord, msg);
-    return;
+    char *msg_tmp = malloc(msg_len + 2);
+    memcpy(msg_tmp, msg, msg_len + 1);
+    update_voice_server(discord, msg_tmp);
+    free(msg_tmp);
   }
 
   usercallback_f callback = discord->gateway_callback;
@@ -616,7 +616,7 @@ void reconnect_voice(voice_gateway_t *vgt){
   }
   vgt->last_reconnection_time = current_time;
 
-  if(vgt->reconnection_count >= 5){
+  if(vgt->reconnection_count >= 3){
     char channel_id[DISCORD_MAX_ID_LEN];
 
     sm_get(vgt->data_dictionary, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID, channel_id,
@@ -737,7 +737,11 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
   if(wait_server)
     sem_wait(&(vgt->ready_server_update));
   else{
-    sleep(3);
+    fprintf(stdout, "\nwait 3 seconds max\n");
+    struct timespec tms;
+    clock_gettime(CLOCK_REALTIME, &tms);
+    tms.tv_sec = tms.tv_sec + 3;
+    sem_timedwait(&(vgt->ready_server_update), &tms);
 
     char token[100];
     char port[100];
@@ -759,6 +763,7 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
          100);
 
     fprintf(stderr, "test:%s\n\n", dgvt_notvoice);
+    fprintf(stderr, "test:%s\n\n", endpoint);
     fflush(stderr);
 
     sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_TOKEN, token,

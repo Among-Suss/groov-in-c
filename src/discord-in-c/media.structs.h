@@ -8,6 +8,8 @@ typedef struct youtube_page_object_t{
   char link[YOUTUBE_WEBPAGE_URL_SIZE];
   char title[1024];
   char description[2048];
+  char audio_url[MAX_URL_LEN_MEDIA];
+  struct timespec audio_url_create_date;
   int length_in_seconds;
 } youtube_page_object_t;
 
@@ -30,6 +32,8 @@ typedef struct media_player_t{
   sem_t quitter;
 
   int initialized;
+
+  sem_t insert_song_mutex;
 } media_player_t;
 
 typedef struct youtube_player_t{

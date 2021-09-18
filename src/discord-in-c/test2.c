@@ -3,6 +3,7 @@
 #include "media.h"
 #include "discord.structs.h"
 #include "media.structs.h"
+#include "cJSON.h"
 
 #define BOT_PREFIX "-"
 
@@ -138,7 +139,7 @@ void *threaded_play_cmd(void *ptr){
 
   sem_wait(&(play_cmd_mutex));
       if(!(pobj->ret)){
-        fprintf(stdout, "\n\n CONNECTING VOICE >>>>>>>>>> \n\n");
+        fprintf(stdout, "\n\n CONNECTING VOICE >>>>>>>>>> %s\n%s\n\n", pobj->uobj.guild_id, pobj->uobj.vc_id);
 
         pobj->vgt = connect_voice_gateway(pobj->dis, pobj->uobj.guild_id, pobj->uobj.vc_id,
                         on_message, on_reconnect_voice, 0);
@@ -159,6 +160,7 @@ void *threaded_play_cmd(void *ptr){
         char filename[128] = { 0 };
         snprintf(filename, sizeof(filename) - 1, "audiotmpfile.%s.out", pobj->uobj.guild_id);
 
+        fprintf(stdout, "setting up media player thread...\n");
         pobj->vgt->media = start_player(secret_key, ssrc,
                                   ip, port, pobj->vgt->voice_udp_sockfd,
                                   filename, pobj->vgt);
@@ -169,6 +171,7 @@ void *threaded_play_cmd(void *ptr){
       write(STDOUT_FILENO, "\n", 1);
       pobj->content += 3;
 
+      fprintf(stdout, "Queueing song...\n");
       if(!strncasecmp(pobj->content, "https://", 8) && 1){
         insert_queue_ydl_query(pobj->vgt->media, pobj->content);
       }else{
@@ -184,6 +187,44 @@ void *threaded_play_cmd(void *ptr){
   return NULL;
 }
 
+void add_user_vc_record(discord_t *discord, char *msg, int msg_len){
+  cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
+  cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
+  cJSON *gid_cjs = cJSON_GetObjectItem(d_cjs, "id");
+
+  if (gid_cjs == NULL)
+  {
+    fprintf(stdout, "\nNULL obj\n");
+      const char *error_ptr = cJSON_GetErrorPtr();
+      if (error_ptr != NULL)
+      {
+          fprintf(stderr, "Error before: %s\n", error_ptr);
+      }
+  }
+  fprintf(stdout, "\ngid:%s\n", gid_cjs->valuestring);
+
+  cJSON *voice_states = cJSON_GetObjectItem(d_cjs, "voice_states");
+  voice_states = voice_states->child;
+
+  while(voice_states){
+    cJSON *uid, *cid;
+    uid = cJSON_GetObjectItem(voice_states, "user_id");
+    cid = cJSON_GetObjectItem(voice_states, "channel_id");
+
+    user_vc_obj uobj;
+    strcpy(uobj.user_id, uid->valuestring);
+    strcpy(uobj.vc_id, cid->valuestring);
+    strcpy(uobj.guild_id, gid_cjs->valuestring);
+
+    sm_put(discord->user_vc_map, uobj.user_id, (char *)&uobj, sizeof(uobj));
+
+    voice_states = voice_states->next;
+  }
+  fprintf(stdout, "done parsing...\n");
+
+  cJSON_Delete(cjs);
+}
+
 
 void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   discord_t *dis = state;
@@ -191,216 +232,228 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   write(STDOUT_FILENO, msg, msg_len);
   write(STDOUT_FILENO, "WOW WOW WOW\n", strlen("WOW WOW WOW\n"));
 
-  char *userid = strcasestr(msg, DISCORD_GATEWAY_VOICE_USERNAME);
-  char *userid_cp = 0;
-  if(userid){
-    userid = strcasestr(userid, DISCORD_GATEWAY_VOICE_USER_ID);
-    userid += 6;
-    char *end = strchr(userid, '"');
-    *end = 0;
-    userid_cp = malloc(strlen(userid) + 1);
-    strcpy(userid_cp, userid);
-    *end = '"';
-    userid = userid_cp;
-    fprintf(stdout, "\n\nDETECTED USER: %s\n\n", userid);
+  if (strcasestr(msg, "\"GUILD_CREATE\"")){
+    add_user_vc_record(dis, msg, msg_len);
+    return;
   }
 
-  char *textchannelid_nw = 0;
-  char *textchannelid = strcasestr(msg, DISCORD_GATEWAY_MSG_CHANNEL_ID);;
-  if(textchannelid){
-    textchannelid += 14;
-    char *end = strchr(textchannelid, '"');
-    *end = 0;
+  if (strcasestr(msg, "\"MESSAGE_CREATE\"")){
 
-    textchannelid_nw = malloc(strlen(textchannelid) + 1);
-    strcpy(textchannelid_nw, textchannelid);
+    char *userid = strcasestr(msg, DISCORD_GATEWAY_VOICE_USERNAME);
+    char *userid_cp = 0;
+    if(userid){
+      userid = strcasestr(userid, DISCORD_GATEWAY_VOICE_USER_ID);
+      userid += 6;
+      char *end = strchr(userid, '"');
+      *end = 0;
+      userid_cp = malloc(strlen(userid) + 1);
+      strcpy(userid_cp, userid);
+      *end = '"';
+      userid = userid_cp;
+      fprintf(stdout, "\n\nDETECTED USER: %s\n\n", userid);
+    }
 
-    *end = '"';
-    textchannelid = textchannelid_nw;
+    char *textchannelid_nw = 0;
+    char *textchannelid = strcasestr(msg, DISCORD_GATEWAY_MSG_CHANNEL_ID);;
+    if(textchannelid){
+      textchannelid += 14;
+      char *end = strchr(textchannelid, '"');
+      *end = 0;
 
-    fprintf(stdout, "\n\nTEXT CHANNEL: %s\n\n", textchannelid);
-  }
+      textchannelid_nw = malloc(strlen(textchannelid) + 1);
+      strcpy(textchannelid_nw, textchannelid);
 
-  user_vc_obj uobj;
-  int has_user = sm_get(dis->user_vc_map, userid, (char *)&uobj, sizeof(uobj));
-  fprintf(stdout, "\n\nUSER IN CHANNEL: %s, guild: %s\n\n", uobj.vc_id, uobj.guild_id);
+      *end = '"';
+      textchannelid = textchannelid_nw;
 
-  msg[msg_len] = 0;
-  while(*msg == ' '){
-    msg++;
-  }
+      fprintf(stdout, "\n\nTEXT CHANNEL: %s\n\n", textchannelid);
+    }
 
-  if (strcasestr(msg, "MESSAGE_CREATE") && has_user) {
-    char *content = strcasestr(msg, "content") + 10;
-    char *end = strchr(content, ',') - 1;
-    *end = 0;
+    user_vc_obj uobj;
+    int has_user = sm_get(dis->user_vc_map, userid, (char *)&uobj, sizeof(uobj));
+    fprintf(stdout, "\n\nUSER IN CHANNEL: %s, guild: %s\n\n", uobj.vc_id, uobj.guild_id);
 
-    voice_gateway_t *vgt = 0;
-    int ret = 1;
-    if (!strncasecmp(content, BOT_PREFIX, 1)){
-      sm_get(dis->voice_gateway_map, uobj.guild_id, (char *)&vgt,
-             sizeof(void *));
-      if(!vgt){
-        ret = 0;
+    msg[msg_len] = 0;
+    while(*msg == ' '){
+      msg++;
+    }
+
+    if (has_user) {
+      char *content = strcasestr(msg, "content") + 10;
+      char *end = strchr(content, ',') - 1;
+      *end = 0;
+
+      voice_gateway_t *vgt = 0;
+      int ret = 1;
+      if (!strncasecmp(content, BOT_PREFIX, 1)){
+        sm_get(dis->voice_gateway_map, uobj.guild_id, (char *)&vgt,
+              sizeof(void *));
+        if(!vgt){
+          ret = 0;
+        }
+      }
+
+      fprintf(stdout, "\n%s %d\n", content, ret);
+
+      if(!strncasecmp(content, BOT_PREFIX"leave", 6) && ret
+          && vgt && vgt->media && vgt->media->initialized){
+        
+        sem_wait(&(vgt->media->insert_song_mutex));
+        fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
+        sem_post(&(vgt->media->quitter));
+        youtube_page_object_t yobj = { 0 };
+        sbuf_insert_front_value((&(vgt->media->song_queue)), &yobj, sizeof(yobj));
+        sem_post(&(vgt->media->skipper));
+
+        fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
+        char *ptr = 0;
+        sm_put(dis->voice_gateway_map, uobj.guild_id, (char *)&ptr,
+              sizeof(void *));
+        send_websocket(vgt->voice_ssl,
+            "request close",
+            strlen("request close"),
+            8);
+
+        char msg[2000];
+        snprintf(msg, 2000,
+              DISCORD_GATEWAY_VOICE_LEAVE, uobj.guild_id);
+        sem_wait(&(dis->gateway_writer_mutex));
+        send_websocket(dis->gateway_ssl, msg, strlen(msg), WEBSOCKET_OPCODE_MSG);
+        sem_post(&(dis->gateway_writer_mutex));
+        
+        fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
+        free_voice_gateway(vgt);
+        fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
+      }else if (!strncasecmp(content, BOT_PREFIX"skip", 5) && ret){
+        
+        sem_post(&(vgt->media->skipper));
+
+      } else if (!strncasecmp(content, BOT_PREFIX"desc", 5) && ret){
+
+        fprintf(stdout, "\ntrying to send msg...\n");
+        
+        ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                                            DISCORD_PORT, strlen(DISCORD_PORT));
+
+        char message[5500];
+        
+        if(vgt->media && vgt->media->playing){
+          youtube_page_object_t ytpobj;
+          sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
+
+          char text[sizeof(ytpobj.description)];
+          char text2[sizeof(ytpobj.description)];
+
+          escape_http_newline(ytpobj.description, sizeof(ytpobj.description), text, sizeof(ytpobj.description));
+
+          fprintf(stdout, "\n%s\n\n\n", text);
+          fflush(stdout);
+
+          escape_http_doublequote(text, sizeof(text), text2, sizeof(text2));
+
+          fix_string_ending(text2);
+
+          char text3[sizeof(ytpobj.title)];
+          char text4[sizeof(ytpobj.title)];
+
+          escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3, sizeof(ytpobj.title));
+          escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
+          fix_string_ending(text4);
+
+          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", text4, ytpobj.link, text2);
+          //snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
+        }
+        else{
+          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
+        }
+
+        char header[2000];
+        snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
+        char buffer[9000];
+        snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+        fprintf(stdout, buffer);
+        send_raw(dis->https_api_ssl, buffer,
+            strlen(buffer));
+
+      }else if (!strncasecmp(content, BOT_PREFIX"np", 3) && ret){
+
+        fprintf(stdout, "\ntrying to send msg...\n");
+        ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                                            DISCORD_PORT, strlen(DISCORD_PORT));
+        char message[5500];
+        
+        if(vgt->media && vgt->media->playing){
+          youtube_page_object_t ytpobj;
+          sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
+
+          char text3[sizeof(ytpobj.title)];
+          char text4[sizeof(ytpobj.title)];
+
+          escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3, sizeof(ytpobj.title));
+          escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
+          fix_string_ending(text4);
+
+          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", text4, ytpobj.link, "");
+        }
+        else{
+          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
+        }
+        char header[2000];
+        snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
+        char buffer[9000];
+        snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+        fprintf(stdout, buffer);
+        send_raw(dis->https_api_ssl, buffer,
+            strlen(buffer));
+
+      }else if (!strncasecmp(content, BOT_PREFIX"queue", 6) && ret){
+
+        fprintf(stdout, "\ntrying to send msg...\n");
+        ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                                            DISCORD_PORT, strlen(DISCORD_PORT));
+        char message[5500];
+        
+        if(vgt->media && vgt->media->playing){
+          youtube_page_object_t ytpobj;
+          sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
+          //snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", ytpobj.title, ytpobj.link, "");
+          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Sorry, this function is not yet implemented!");
+        }
+        else{
+          snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Sorry, this function is not yet implemented!");
+        }
+        char header[2000];
+        snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
+        char buffer[9000];
+        snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+        fprintf(stdout, buffer);
+        send_raw(dis->https_api_ssl, buffer,
+            strlen(buffer));
+
+      }else if (!strncasecmp(content, BOT_PREFIX"p ", 3)) {
+        struct play_cmd_obj *pobj = malloc(sizeof(struct play_cmd_obj));
+        pobj->dis = dis;
+        pobj->ret = ret;
+        pobj->vgt = vgt;
+        pobj->uobj = uobj;
+
+        pobj->content = malloc(strlen(content) + 1);
+        strcpy(pobj->content, content);
+
+        pthread_t tid;
+        pthread_create(&tid, NULL, threaded_play_cmd, pobj);
       }
     }
 
-    fprintf(stdout, "\n%s %d\n", content, ret);
-
-    if(!strncasecmp(content, BOT_PREFIX"leave", 6) && ret
-        && vgt && vgt->media && vgt->media->initialized){
-      fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
-      sem_post(&(vgt->media->quitter));
-      youtube_page_object_t yobj = { 0 };
-      sbuf_insert_front_value((&(vgt->media->song_queue)), &yobj, sizeof(yobj));
-      sem_post(&(vgt->media->skipper));
-
-      fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
-      char *ptr = 0;
-      sm_put(dis->voice_gateway_map, uobj.guild_id, (char *)&ptr,
-             sizeof(void *));
-      send_websocket(vgt->voice_ssl,
-          "request close",
-          strlen("request close"),
-          8);
-
-      char msg[2000];
-      snprintf(msg, 2000,
-            DISCORD_GATEWAY_VOICE_LEAVE, uobj.guild_id);
-      sem_wait(&(dis->gateway_writer_mutex));
-      send_websocket(dis->gateway_ssl, msg, strlen(msg), WEBSOCKET_OPCODE_MSG);
-      sem_post(&(dis->gateway_writer_mutex));
-      
-      fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
-      free_voice_gateway(vgt);
-      fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
-    }else if (!strncasecmp(content, BOT_PREFIX"skip", 5) && ret){
-      
-      sem_post(&(vgt->media->skipper));
-
-    } else if (!strncasecmp(content, BOT_PREFIX"desc", 5) && ret){
-
-      fprintf(stdout, "\ntrying to send msg...\n");
-      
-      ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                                          DISCORD_PORT, strlen(DISCORD_PORT));
-
-      char message[5500];
-      
-      if(vgt->media && vgt->media->playing){
-        youtube_page_object_t ytpobj;
-        sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
-
-        char text[sizeof(ytpobj.description)];
-        char text2[sizeof(ytpobj.description)];
-
-        escape_http_newline(ytpobj.description, sizeof(ytpobj.description), text, sizeof(ytpobj.description));
-
-        fprintf(stdout, "\n%s\n\n\n", text);
-        fflush(stdout);
-
-        escape_http_doublequote(text, sizeof(text), text2, sizeof(text2));
-
-        fix_string_ending(text2);
-
-        char text3[sizeof(ytpobj.title)];
-        char text4[sizeof(ytpobj.title)];
-
-        escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3, sizeof(ytpobj.title));
-        escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
-        fix_string_ending(text4);
-
-        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", text4, ytpobj.link, text2);
-        //snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
-      }
-      else{
-        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
-      }
-
-      char header[2000];
-      snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
-      char buffer[9000];
-      snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
-      fprintf(stdout, buffer);
-      send_raw(dis->https_api_ssl, buffer,
-           strlen(buffer));
-
-    }else if (!strncasecmp(content, BOT_PREFIX"np", 3) && ret){
-
-      fprintf(stdout, "\ntrying to send msg...\n");
-      ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                                          DISCORD_PORT, strlen(DISCORD_PORT));
-      char message[5500];
-      
-      if(vgt->media && vgt->media->playing){
-        youtube_page_object_t ytpobj;
-        sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
-
-        char text3[sizeof(ytpobj.title)];
-        char text4[sizeof(ytpobj.title)];
-
-        escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3, sizeof(ytpobj.title));
-        escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
-        fix_string_ending(text4);
-
-        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", text4, ytpobj.link, "");
-      }
-      else{
-        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Not currently playing a song!");
-      }
-      char header[2000];
-      snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
-      char buffer[9000];
-      snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
-      fprintf(stdout, buffer);
-      send_raw(dis->https_api_ssl, buffer,
-           strlen(buffer));
-
-    }else if (!strncasecmp(content, BOT_PREFIX"queue", 6) && ret){
-
-      fprintf(stdout, "\ntrying to send msg...\n");
-      ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                                          DISCORD_PORT, strlen(DISCORD_PORT));
-      char message[5500];
-      
-      if(vgt->media && vgt->media->playing){
-        youtube_page_object_t ytpobj;
-        sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj), 0);
-        //snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_EMBED, "Now Playing:", ytpobj.title, ytpobj.link, "");
-        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Sorry, this function is not yet implemented!");
-      }
-      else{
-        snprintf(message, 5500, DISCORD_API_POST_BODY_MSG_SIMPLE, "Sorry, this function is not yet implemented!");
-      }
-      char header[2000];
-      snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
-      char buffer[9000];
-      snprintf(buffer, 9000, "%s\r\n\r\n%s\r\n\r\n", header, message);
-      fprintf(stdout, buffer);
-      send_raw(dis->https_api_ssl, buffer,
-           strlen(buffer));
-
-    }else if (!strncasecmp(content, BOT_PREFIX"p ", 3)) {
-      struct play_cmd_obj *pobj = malloc(sizeof(struct play_cmd_obj));
-      pobj->dis = dis;
-      pobj->ret = ret;
-      pobj->vgt = vgt;
-      pobj->uobj = uobj;
-
-      pobj->content = malloc(strlen(content) + 1);
-      strcpy(pobj->content, content);
-
-      pthread_t tid;
-      pthread_create(&tid, NULL, threaded_play_cmd, pobj);
+    if(userid_cp){
+      free(userid_cp);
     }
-  }
+    if(textchannelid_nw){
+      free(textchannelid_nw);
+    }
 
-  if(userid_cp){
-    free(userid_cp);
   }
-  if(textchannelid_nw){
-    free(textchannelid_nw);
-  }
+  
 }
 
 int main(int argc, char **argv) {
