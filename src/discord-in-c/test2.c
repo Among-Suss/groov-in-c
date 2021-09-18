@@ -8,8 +8,6 @@
 char *bottoken;
 char botprefix[10];
 
-//media_player_t *media;
-
 sem_t play_cmd_mutex;
 
 void escape_http_newline(char *input, long unsigned in_size, char *output, long unsigned out_size){
@@ -517,7 +515,7 @@ int main(int argc, char **argv) {
   }
   discord_t *discord = init_discord(bottoken, "641");
 
-  fprintf(stdout, "Token: %s\n", BOT_PREFIX"");
+  fprintf(stdout, "Token: %s\n", BOT_PREFIX);
 
   char buf[100];
   sm_get(discord->data_dictionary, DISCORD_HOSTNAME_KEY, buf, 100);
