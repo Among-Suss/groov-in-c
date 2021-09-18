@@ -916,7 +916,7 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
 }
 
 int insert_queue_ydl_query(media_player_t *media, char *ydl_query){
-  sem_wait(&(media->insert_song_mutex));
+  sem_wait(&(media->insert_song_mutex)); //necessary to fix -leave cmd
 
   youtube_page_object_t ytobj;
   strncpy(ytobj.query, ydl_query, sizeof(ytobj.query));
