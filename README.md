@@ -43,6 +43,71 @@ Note: By default the bot will only run for 22 days a month. Check out the first 
         - Use Voice Activity
 3. Go to link from the **Scopes** section and add the bot to your server.
 
+## Using the bot
+
+### Configuring the prefix
+The default prefix for the bot is "-". The prefix can be changed at runtime with the command:
+```
+[prefix]prefix newprefix
+```
+for example:
+```
+-prefix !
+```
+This will change the prefix from - to !
+
+This change will only last until the bot gets restarted. To make the change permanent, add a prefix configuration to the bot configuration.
+
+Add the following text to your welcome channel's topic (description), or any other channel that the bot has permission to view.
+```
+@[bot-name] prefix[myprefix] end
+```
+Replace [bot-name] with what you put in your BOT_NAME on heroku or environment variable.
+for example:
+```
+@groov-in-c prefix! end
+```
+This will change the default prefix to ! for the bot named groove-in-c. This configuration is applied when the bot starts or reboots. To apply changes to the bot without rebooting, also use the -prefix command as well.
+
+### List of commands
+Commands are written in the following format
+[prefix]command [arguments]
+
+The list here assumes the prefix is "-".
+
+```
+Play music:                 -p [youtube link or text to search youtube]
+Skip music:                 -skip
+Show queue:                 -queue
+Show current song:          -np
+Show youtube description    -desc
+Make the bot leave          -leave
+```
+
+The -p command takes either a youtube link or search query
+For example:
+```
+-p ghibli jazz playlist
+-p https://youtu.be/h03hS1qGSLA
+-p https://www.youtube.com/watch?v=h03hS1qGSLA
+```
+
+These are all valid. There is no support for queuing playlists
+
+### Bot configuration
+Bot server specific configuration can be applied by putting the configuration string in the server's welcome channel topic. The configuration string follows a very specific syntax.
+```
+@[bot-name] config[value] config[value] ... ... end
+```
+List of possible configurations:
+```
+Prefix:
+    config      - prefix
+    value       - any single character
+    example     - @groov-in-c prefix! end
+```
+More configurations may be added in the future.
+
 ## FAQ
 
 **Q**: Why did my bot stopped after a couple of weeks?
