@@ -72,7 +72,7 @@ void free_voice_gateway(voice_gateway_t *vgt){
 void enum_callback_delete(const char *key, const char *value, int value_len,
                           const void *obj) {
   voice_gateway_t *vgt = *((void **)value);
-  free(vgt);
+  free_voice_gateway(vgt);
 }
 
 //free function
@@ -703,6 +703,14 @@ void reconnect_voice(voice_gateway_t *vgt){
   free(ipdiscovery);
 }
 
+void cancel_voice_gateway(voice_gateway_t *vgt, char *guild_id){
+  char *nullptr = 0;
+
+  sm_put(vgt->discord->voice_gateway_map, guild_id, (char *)&nullptr, sizeof(void *));
+  sm_delete(vgt->data_dictionary);
+  free(vgt);
+}
+
 voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
                            usercallback_f voice_callback, voice_gateway_reconnection_callback_f reconn_callback, int wait_server) {
   int guild_id_len = strlen(guild_id);
@@ -736,12 +744,20 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
   sem_post(&(discord->gateway_writer_mutex));
 
   fprintf(stdout, "\n\n\nWAITING FOR SERVER UPDATE\n\n\n");
-  sem_wait(&(vgt->ready_state_update));
+  struct timespec tms;
+  clock_gettime(CLOCK_REALTIME, &tms);
+  tms.tv_sec = tms.tv_sec + 5;
+  int smret = sem_timedwait(&(vgt->ready_state_update), &tms);
+  if(smret != 0){
+    free(msg);
+    cancel_voice_gateway(vgt, guild_id);
+    return NULL;
+  }
+
   if(wait_server)
     sem_wait(&(vgt->ready_server_update));
   else{
     fprintf(stdout, "\nwait 3 seconds max\n");
-    struct timespec tms;
     clock_gettime(CLOCK_REALTIME, &tms);
     tms.tv_sec = tms.tv_sec + 3;
     sem_timedwait(&(vgt->ready_server_update), &tms);

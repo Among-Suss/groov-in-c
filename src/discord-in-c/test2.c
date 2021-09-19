@@ -12,6 +12,24 @@ char *bottoken;
 
 sem_t play_cmd_mutex;
 
+/* Simple sending message to discord
+ *
+ *
+ * 
+ */
+void simple_send_msg(discord_t *dis, char *text, char *textchannelid){
+  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                                            DISCORD_PORT, strlen(DISCORD_PORT));
+  char message[4000];
+  snprintf(message, 4000, DISCORD_API_POST_BODY_MSG_SIMPLE, text);
+  char header[2000];
+  snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
+  char buffer[5000];
+  snprintf(buffer, 5000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+  send_raw(dis->https_api_ssl, buffer,
+            strlen(buffer));
+}
+
 /* Helper Functions for sending strings in JSON
  *
  *  - these functions are necessary to escape out json string properly
@@ -145,6 +163,7 @@ struct play_cmd_obj{
   discord_t *dis;
   user_vc_obj uobj;
   char *content;
+  char *textchannelid;
 };
 void *threaded_play_cmd(void *ptr){
   pthread_detach(pthread_self());
@@ -153,50 +172,60 @@ void *threaded_play_cmd(void *ptr){
   char *og_content = pobj->content;
 
   sem_wait(&(play_cmd_mutex));
-      if(!(pobj->ret)){
-        fprintf(stdout, "\n\n CONNECTING VOICE >>>>>>>>>> %s\n%s\n\n", pobj->uobj.guild_id, pobj->uobj.vc_id);
+  if(!(pobj->ret)){
+    fprintf(stdout, "\n\n CONNECTING VOICE >>>>>>>>>> %s\n%s\n\n", pobj->uobj.guild_id, pobj->uobj.vc_id);
 
-        pobj->vgt = connect_voice_gateway(pobj->dis, pobj->uobj.guild_id, pobj->uobj.vc_id,
-                        on_message, on_reconnect_voice, 0);
+    pobj->vgt = connect_voice_gateway(pobj->dis, pobj->uobj.guild_id, pobj->uobj.vc_id,
+                    on_message, on_reconnect_voice, 0);
 
-        fprintf(stdout, "\n\n DONE CONNECTING VOICE \n\n");
+    if(!(pobj->vgt)){
+      simple_send_msg(pobj->dis, "Failed to connect to voice channel. Make sure the bot has permission to view voice channel."
+            , pobj->textchannelid);
+      goto CLEANUP;
+    }
 
-        char secret_key[1000];
-        char ip[100];
-        char port[100];
-        char *ssrc = "66666";
+    fprintf(stdout, "\n\n DONE CONNECTING VOICE \n\n");
 
-        sm_get(pobj->vgt->data_dictionary, DISCORD_VOICE_IP, ip, 100);
-        sm_get(pobj->vgt->data_dictionary, DISCORD_VOICE_PORT, port, 100);
-        sm_get(pobj->vgt->data_dictionary, DISCORD_VOICE_SECRET_KEY, secret_key, 1000);
+    char secret_key[1000];
+    char ip[100];
+    char port[100];
+    char *ssrc = "66666";
 
-        fprintf(stdout, "\n\nstarting media player.......\n\n");
+    sm_get(pobj->vgt->data_dictionary, DISCORD_VOICE_IP, ip, 100);
+    sm_get(pobj->vgt->data_dictionary, DISCORD_VOICE_PORT, port, 100);
+    sm_get(pobj->vgt->data_dictionary, DISCORD_VOICE_SECRET_KEY, secret_key, 1000);
 
-        char filename[128] = { 0 };
-        snprintf(filename, sizeof(filename) - 1, "audiotmpfile.%s.out", pobj->uobj.guild_id);
+    fprintf(stdout, "\n\nstarting media player.......\n\n");
 
-        fprintf(stdout, "setting up media player thread...\n");
-        pobj->vgt->media = start_player(secret_key, ssrc,
-                                  ip, port, pobj->vgt->voice_udp_sockfd,
-                                  filename, pobj->vgt);
-      }
+    char filename[128] = { 0 };
+    snprintf(filename, sizeof(filename) - 1, "audiotmpfile.%s.out", pobj->uobj.guild_id);
 
-      write(STDOUT_FILENO, "\n", 1);
-      write(STDOUT_FILENO, pobj->content, strlen(pobj->content));
-      write(STDOUT_FILENO, "\n", 1);
-      pobj->content += 3;
+    fprintf(stdout, "setting up media player thread...\n");
+    pobj->vgt->media = start_player(secret_key, ssrc,
+                              ip, port, pobj->vgt->voice_udp_sockfd,
+                              filename, pobj->vgt);
+  }
 
-      fprintf(stdout, "Queueing song...\n");
-      if(!strncasecmp(pobj->content, "https://", 8) && 1){
-        insert_queue_ydl_query(pobj->vgt->media, pobj->content);
-      }else{
-        char youtube_dl_search_txt[2048];
-        snprintf(youtube_dl_search_txt, 2048, "ytsearch1:%s", pobj->content);
-        insert_queue_ydl_query(pobj->vgt->media, youtube_dl_search_txt);
-      }
-    sem_post(&(play_cmd_mutex));
+  write(STDOUT_FILENO, "\n", 1);
+  write(STDOUT_FILENO, pobj->content, strlen(pobj->content));
+  write(STDOUT_FILENO, "\n", 1);
+  pobj->content += 3;
+
+  fprintf(stdout, "Queueing song...\n");
+  if(!strncasecmp(pobj->content, "https://", 8) && 1){
+    insert_queue_ydl_query(pobj->vgt->media, pobj->content);
+  }else{
+    char youtube_dl_search_txt[2048];
+    snprintf(youtube_dl_search_txt, 2048, "ytsearch1:%s", pobj->content);
+    insert_queue_ydl_query(pobj->vgt->media, youtube_dl_search_txt);
+  }
+
+CLEANUP:
+
+  sem_post(&(play_cmd_mutex));
 
   free(og_content);
+  free(pobj->textchannelid);
   free(pobj);
 
   return NULL;
@@ -296,24 +325,6 @@ void set_guild_config(discord_t *discord, char *msg, int msg_len){
 
 
   cJSON_Delete(cjs);
-}
-
-/* Simple sending message to discord
- *
- *
- * 
- */
-void simple_send_msg(discord_t *dis, char *text, char *textchannelid){
-  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                                            DISCORD_PORT, strlen(DISCORD_PORT));
-  char message[4000];
-  snprintf(message, 4000, DISCORD_API_POST_BODY_MSG_SIMPLE, text);
-  char header[2000];
-  snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken, (int)strlen(message));
-  char buffer[5000];
-  snprintf(buffer, 5000, "%s\r\n\r\n%s\r\n\r\n", header, message);
-  send_raw(dis->https_api_ssl, buffer,
-            strlen(buffer));
 }
 
 /* Gateway callback. handle all messages
@@ -610,6 +621,8 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
         pobj->content = malloc(strlen(content) + 1);
         strcpy(pobj->content, content);
+        pobj->textchannelid = malloc(strlen(textchannelid) + 1);
+        strcpy(pobj->textchannelid, textchannelid);
 
         pthread_t tid;
         pthread_create(&tid, NULL, threaded_play_cmd, pobj);
