@@ -29,6 +29,16 @@ void simple_send_msg(discord_t *dis, char *text, char *textchannelid) {
   send_raw(dis->https_api_ssl, buffer, strlen(buffer));
 }
 
+void send_typing_indicator(discord_t *dis, char *textchannelid){
+  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                DISCORD_PORT, strlen(DISCORD_PORT));
+  char header[1000];
+  snprintf(header, sizeof(header), DISCORD_API_POST_TYPING, textchannelid, bottoken);
+  char buffer[1100];
+  snprintf(buffer, sizeof(buffer), "%s\r\n\r\n\r\n\r\n", header);
+  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+}
+
 /* Helper Functions for sending strings in JSON
  *
  *  - these functions are necessary to escape out json string properly
@@ -172,6 +182,8 @@ void *threaded_play_cmd(void *ptr) {
   struct play_cmd_obj *pobj = ptr;
   char *og_content = pobj->content;
 
+  send_typing_indicator(pobj->dis, pobj->textchannelid);
+
   sem_wait(&(play_cmd_mutex));
   if (!(pobj->vgt)) {
     fprintf(stdout, "\n\n CONNECTING VOICE >>>>>>>>>> %s\n%s\n\n",
@@ -218,13 +230,24 @@ void *threaded_play_cmd(void *ptr) {
   write(STDOUT_FILENO, "\n", 1);
   pobj->content += 3;
 
+
   fprintf(stdout, "Queueing song...\n");
+  char title[200] = { 0 };
+  int insert_queue_ret_error = 0;
   if (!strncasecmp(pobj->content, "https://", 8) && 1) {
-    insert_queue_ydl_query(pobj->vgt->media, pobj->content);
+    insert_queue_ret_error = insert_queue_ydl_query(pobj->vgt->media, pobj->content, title, sizeof(title));
   } else {
     char youtube_dl_search_txt[2048];
     snprintf(youtube_dl_search_txt, 2048, "ytsearch1:%s", pobj->content);
-    insert_queue_ydl_query(pobj->vgt->media, youtube_dl_search_txt);
+    insert_queue_ret_error = insert_queue_ydl_query(pobj->vgt->media, youtube_dl_search_txt, title, sizeof(title));
+  }
+
+  if(!insert_queue_ret_error){
+    char message[300];
+    snprintf(message, sizeof(message), "Queued song: %s", title);
+    simple_send_msg(pobj->dis, message ,pobj->textchannelid);
+  }else{
+    simple_send_msg(pobj->dis, "Unable to queue song. Please double check the link or whether video is age restricted." ,pobj->textchannelid);
   }
 
 CLEANUP:

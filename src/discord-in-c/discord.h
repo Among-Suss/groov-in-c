@@ -29,6 +29,11 @@
   "Content-Length: %d\r\n" \
   "Content-Type: application/json"
 
+#define DISCORD_API_POST_TYPING "POST /api/v9/channels/%s/typing HTTP/1.1\r\n" \
+  "Host: " DISCORD_HOST "\r\n" \
+  "Authorization: Bot %s\r\n" \
+  "Content-Length: 0\r\n" \
+  "Content-Type: application/json"
 
 #define DISCORD_API_POST_BODY_MSG_SIMPLE "{\"content\": \"%s\",\"tts\": false}"
 #define DISCORD_API_POST_BODY_MSG_EMBED "{"\

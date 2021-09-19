@@ -915,7 +915,7 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   return 0;
 }
 
-int insert_queue_ydl_query(media_player_t *media, char *ydl_query){
+int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_title, int return_title_len){
   sem_wait(&(media->insert_song_mutex)); //necessary to fix -leave cmd
 
   youtube_page_object_t ytobj;
@@ -927,5 +927,7 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query){
     sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
   
   sem_post(&(media->insert_song_mutex));
+
+  strncpy(return_title, ytobj.title, return_title_len - 1);
   return (!ret) - 1;
 }
