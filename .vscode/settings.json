@@ -27,6 +27,7 @@
         "unordered_map": "c",
         "unordered_set": "c",
         "initializer_list": "c",
-        "valarray": "c"
+        "valarray": "c",
+        "sbuf.structs.h": "c"
     }
 }

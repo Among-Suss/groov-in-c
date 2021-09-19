@@ -5,8 +5,8 @@ test2: test2.c cJSON.h cJSON.c media.c media.h discord.c discord.h strmap.c strm
 
 
 format:
-	clang-format-10 --style=llvm -i discord.h
-	clang-format-10 --style=llvm -i discord.c
-	clang-format-10 --style=llvm -i test2.c
+	clang-format-10 --style="{BasedOnStyle: llvm, AllowShortFunctionsOnASingleLine: None, SortIncludes: false}" -i discord.h
+	clang-format-10 --style="{BasedOnStyle: llvm, AllowShortFunctionsOnASingleLine: None, SortIncludes: false}" -i discord.c
+	clang-format-10 --style="{BasedOnStyle: llvm, AllowShortFunctionsOnASingleLine: None, SortIncludes: false}" -i test2.c
 
 #-fsanitize=address
