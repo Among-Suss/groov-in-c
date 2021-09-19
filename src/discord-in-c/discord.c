@@ -212,6 +212,9 @@ void update_voice_state(discord_t *discord, char *msg) {
       if(channel_id_end){
         sm_put(vgt->data_dictionary, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID, channel_id,
               strlen(channel_id) + 1);
+      }else{
+        sm_put(vgt->data_dictionary, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID, 0,
+              sizeof(char));
       }
       sem_post(&(vgt->ready_state_update));
     }

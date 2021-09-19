@@ -435,12 +435,20 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       if(!vgt){
         ret = 0;
       }
-      
+
+      char bot_channel_id[100] = { 0 };
+      int wrong_vc = 0;
+      if(vgt){
+        int found = sm_get(vgt->data_dictionary, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID, bot_channel_id,
+                sizeof(bot_channel_id));
+        wrong_vc = found && strcmp(bot_channel_id, uobj.vc_id);
+      }
+
 
       fprintf(stdout, "\n%s %d\n", content, ret);
 
       if((content[0] == botprefix[0]) && !strncasecmp(content+1, "leave", 5) && ret
-          && vgt && vgt->media && vgt->media->initialized){
+          && vgt && vgt->media && vgt->media->initialized && !wrong_vc){
         
         sem_wait(&(vgt->media->insert_song_mutex));
 
@@ -472,12 +480,12 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         free_voice_gateway(vgt);
         fprintf(stdout, "\nLEAVING leaving... LEAVING\n");
       }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "skip", 4) && ret 
-              && vgt && vgt->media && vgt->media->playing){
+              && vgt && vgt->media && vgt->media->playing && !wrong_vc){
         
         sem_post(&(vgt->media->skipper));
 
       } else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "desc", 4) && ret
-              && vgt && vgt->media && vgt->media->playing){
+              && vgt && vgt->media && vgt->media->playing && !wrong_vc){
 
         fprintf(stdout, "\ntrying to send msg...\n");
         
@@ -525,7 +533,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
             strlen(buffer));
 
       }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "np", 2) && ret
-                  && vgt && vgt->media && vgt->media->playing){
+                  && vgt && vgt->media && vgt->media->playing && !wrong_vc){
 
         fprintf(stdout, "\ntrying to send msg...\n");
         ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
@@ -580,7 +588,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
             strlen(buffer));
 
       }else if ((content[0] == botprefix[0]) && !strncasecmp(content + 1, "queue", 5) && ret
-                && vgt && vgt->media && vgt->media->initialized){
+                && vgt && vgt->media && vgt->media->initialized && !wrong_vc){
 
         fprintf(stdout, "\ntrying to send msg...\n");
         ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
@@ -612,7 +620,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         send_raw(dis->https_api_ssl, buffer,
             strlen(buffer));
 
-      }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "p ", 2)) {
+      }else if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "p ", 2) && !wrong_vc) {
         struct play_cmd_obj *pobj = malloc(sizeof(struct play_cmd_obj));
         pobj->dis = dis;
         pobj->ret = ret;
@@ -626,12 +634,17 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
         pthread_t tid;
         pthread_create(&tid, NULL, threaded_play_cmd, pobj);
-      }else if(!(vgt && vgt->media && vgt->media->playing) &&
+      }else if(!(vgt && vgt->media && vgt->media->playing && !wrong_vc) &&
                 (!strncasecmp(content, botprefix, 1) && 
           (!strncasecmp(content+1, "p ", 2) || !strncasecmp(content + 1, "queue", 5) ||
           !strncasecmp(content+1, "np", 2) || !strncasecmp(content+1, "desc", 4)
-          || !strncasecmp(content+1, "skip", 4) || !strncasecmp(content+1, "leave", 5)))){
-        simple_send_msg(dis, "No song playing!", textchannelid);
+          || !strncasecmp(content+1, "skip", 4) || !strncasecmp(content+1, "leave", 5))))
+      {  
+        if(wrong_vc){
+          simple_send_msg(dis, "Please make sure I am joined or in the correct voice channel.", textchannelid);
+        }else{
+          simple_send_msg(dis, "No song playing!", textchannelid);
+        }
       }
     }else{
       if (!strncasecmp(content, botprefix, 1) && 
