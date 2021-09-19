@@ -94,6 +94,7 @@
 #define DISCORD_GATEWAY_VOICE_PORT "voice_port"
 #define DISCORD_GATEWAY_INTENT "DISCORD_INTENT"
 #define DISCORD_GATEWAY_MSG_CHANNEL_ID "\"channel_id\""
+#define DISCORD_GATEWAY_GUILD_PREFIX_SETTING "GUILD_PREFIX"
 
 // voice gateway search strings and dict keys
 #define DISCORD_VOICE_GT_INFO_OPCODE "\"op\":2"

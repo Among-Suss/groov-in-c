@@ -8,7 +8,7 @@
             "defines": [
                 "__USE_POSIX",
                 "_GNU_SOURCE",
-                "BOT_PREFIX"
+                "BOT_PREFIX=\"\""
             ],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",

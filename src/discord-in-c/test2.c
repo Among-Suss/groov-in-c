@@ -5,8 +5,10 @@
 #include "media.structs.h"
 #include "cJSON.h"
 
+#define DEFAULT_BOT_NAME "groov-in-c"
+char *botname;
+
 char *bottoken;
-char botprefix[10];
 
 sem_t play_cmd_mutex;
 
@@ -219,12 +221,12 @@ void get_queue_callback(void *value, int len, void *state, int pos, int start, i
   memcpy(array[pos - start], text4, len);
 }
 
-/* Adds users that is in VC to the databse.
+/* set the prefix for each guild based on settings described in welcome channel topic.
  *
- * bot needs to know who is in VC...
+ * bot needs to know what the prefix is...
  * 
  */
-void add_user_vc_record(discord_t *discord, char *msg, int msg_len){
+void set_guild_config(discord_t *discord, char *msg, int msg_len){
   cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
   cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
   cJSON *gid_cjs = cJSON_GetObjectItem(d_cjs, "id");
@@ -258,6 +260,40 @@ void add_user_vc_record(discord_t *discord, char *msg, int msg_len){
     voice_states = voice_states->next;
   }
   fprintf(stdout, "done parsing...\n");
+
+  
+
+  char botnamesearch[100];
+  snprintf(botnamesearch, sizeof(botnamesearch), "@%s", botname);
+
+  char *settings = strstr(msg, botnamesearch);
+  if(!settings){
+    return;
+  }
+
+  settings = strchr(settings, ' ');
+  if(!settings){
+    return;
+  }
+  settings++;
+
+  while(strncasecmp(settings, "end", 3)){
+    if(!strncasecmp(settings, "prefix", 6)){
+      char prefix = *(settings + 6);
+
+      char key[200];
+      snprintf(key, sizeof(key), "%s%s", DISCORD_GATEWAY_GUILD_PREFIX_SETTING, gid_cjs->valuestring);
+
+      sm_put(discord->data_dictionary, key, &prefix, sizeof(prefix));
+    }
+    settings = strchr(settings, ' ');
+    if(!settings){
+      break;
+    }
+    settings++;
+  }
+
+
 
   cJSON_Delete(cjs);
 }
@@ -293,7 +329,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
   //handle adding members on startup
   if (strcasestr(msg, "\"GUILD_CREATE\"")){
-    add_user_vc_record(dis, msg, msg_len);
+    set_guild_config(dis, msg, msg_len);
     return;
   }
 
@@ -309,12 +345,6 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   if (strcasestr(msg, "\"MESSAGE_CREATE\"")){
     char *content = strcasestr(msg, "content") + 10;
 
-    //handle bot prefix changing
-    if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "prefix", 6)){
-      botprefix[0] = *(content + 8);
-      return;
-    }
-
     //get guild_id
     char *guildid = strcasestr(msg, "guild_id\"");
     guildid += 11;
@@ -326,6 +356,23 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     *end = '"';
     guildid = guildid_cp;
     fprintf(stdout, "\n\nDETECTED guild id: %s\n\n", guildid);
+
+
+    //get the bot prefix for this guild
+    char botprefix[10] = { 0 };
+    botprefix[0] = BOT_PREFIX[0];
+    char key[200];
+    snprintf(key, sizeof(key), "%s%s", DISCORD_GATEWAY_GUILD_PREFIX_SETTING, guildid);
+    sm_get(dis->data_dictionary, key, botprefix, sizeof(botprefix));
+
+
+
+    //handle bot prefix changing
+    if ((content[0] == botprefix[0]) && !strncasecmp(content+1, "prefix", 6)){
+      botprefix[0] = *(content + 8);
+      sm_put(dis->data_dictionary, key, &botprefix[0], sizeof(botprefix[0]));
+      return;
+    }
     
 
     //get the user id of the person sending message
@@ -597,8 +644,12 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 }
 
 int main(int argc, char **argv) {
-  strcpy(botprefix, BOT_PREFIX);
   sem_init(&(play_cmd_mutex), 0, 1);
+
+  botname = getenv("BOT_NAME");
+  if(!botname){
+    botname = DEFAULT_BOT_NAME;
+  }
 
   if (argc > 1) {
     bottoken = argv[1];
