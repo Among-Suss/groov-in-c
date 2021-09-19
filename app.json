@@ -2,7 +2,8 @@
     "name": "Among-Suss/groov-in-c",
     "description": "Discord music bot written in C",
     "repository": "https://github.com/Among-Suss/groov-in-c",
-    "keywords": ["Docker", "Discord", "Music", "Heroku"],
+    "keywords": ["docker", "discord", "music", "heroku"],
+    "stack": "container",
     "env": {
       "BOT_NAME":{
         "description": "Bot name to be used in configuration",
