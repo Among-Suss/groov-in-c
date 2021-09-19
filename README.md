@@ -13,8 +13,9 @@ Note: By default the bot will only run for 22 days a month. Check out the first 
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Among-Suss/groov-in-c/tree/main)
 
-### 2. Deploy App
+### 2. Creating and Deploy App
  - Enter your token and a unique bot name (the name is only for options; it won't affect the bot's display name)
+ - The BOT_NAME field should NOT contain any spaces. for example: my-groov-in-c-bot
 
 ### 3. Activate Bot
 1. Go to the app through the Heroku Dashboard.
