@@ -560,8 +560,8 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
           
           #define barsize 40
           char bar[barsize] = {0};
-          long progress = (barsize-1) * lapse / (ytpobj.length_in_seconds);
-          for(int i = 0; i < barsize; i++){
+          long progress = (barsize-2) * lapse / (ytpobj.length_in_seconds);
+          for(int i = 0; i < barsize - 2; i++){
             if(i < progress)
               strcat(bar, "#");
             else
