@@ -75,6 +75,6 @@ if __name__ == "__main__":
     if command == 'description':
         print(get_description(url))
     elif command == 'playlist':
-        print(json.dumps(get_playlist_id(url, True)))
+        print(json.dumps(get_playlist_id(url)))
     else:
         sys.exit(1)
