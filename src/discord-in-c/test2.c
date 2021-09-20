@@ -319,7 +319,24 @@ void set_guild_config(discord_t *discord, char *msg, int msg_len) {
 
     voice_states = voice_states->next;
   }
-  fprintf(stdout, "done parsing...\n");
+  fprintf(stdout, "done parsing voice states...\n");
+
+  char key[1000];
+  cJSON *roles = cJSON_GetObjectItem(d_cjs, "roles");
+  roles = roles->child;
+  while (roles) {
+    cJSON *name, *id;
+    name = cJSON_GetObjectItem(roles, "name");
+    id = cJSON_GetObjectItem(roles, "id");
+
+    fprintf(stdout, "found role: %s:%s\n", name->valuestring, id->valuestring);
+
+    snprintf(key, sizeof(key), "%s%s%s", DISCORD_GATEWAY_ROLE_MAP_ITEM, gid_cjs->valuestring, name->valuestring);
+
+    sm_put(discord->data_dictionary, key, id->valuestring, strlen(id->valuestring) + 1);
+
+    roles = roles->next;
+  }
 
   char botnamesearch[100];
   snprintf(botnamesearch, sizeof(botnamesearch), "@%s", botname);
@@ -335,16 +352,44 @@ void set_guild_config(discord_t *discord, char *msg, int msg_len) {
   }
   settings++;
 
+  char roleid[100];
   while (strncasecmp(settings, "end", 3)) {
     if (!strncasecmp(settings, "prefix", 6)) {
       char prefix = *(settings + 6);
 
-      char key[200];
       snprintf(key, sizeof(key), "%s%s", DISCORD_GATEWAY_GUILD_PREFIX_SETTING,
                gid_cjs->valuestring);
 
       sm_put(discord->data_dictionary, key, &prefix, sizeof(prefix));
+    } else if (!strncasecmp(settings, "djroles", 7)) {
+      char *role = settings + 8;
+      char *end;
+      while(role[0] != ' '){
+        role++;
+        end = strstr(role, "\\\"");
+        *end = 0;
+            
+        snprintf(key, sizeof(key), "%s%s%s", DISCORD_GATEWAY_ROLE_MAP_ITEM, gid_cjs->valuestring, role);
+
+        int found = sm_get(discord->data_dictionary, key, roleid, sizeof(roleid));
+        
+        if(found){
+          snprintf(key, sizeof(key), "%s%s%s", DISCORD_GATEWAY_DJ_ROLES, gid_cjs->valuestring, roleid);
+          fprintf(stdout, "djrole key: %s   ;%s\n", key, role);
+
+          unsigned char allones = 0xFF;
+          sm_put(discord->data_dictionary, key, (char *)&allones, sizeof(allones));
+        }
+
+        *end = '\\';
+        role = end + 2;
+        if(role[0] == ' ') 
+          break;
+        role += 2;
+      }
     }
+
+
     settings = strchr(settings, ' ');
     if (!settings) {
       break;
@@ -357,7 +402,7 @@ void set_guild_config(discord_t *discord, char *msg, int msg_len) {
 
 void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                    char *guildid, char *textchannelid, int wrong_vc,
-                   int has_user) {
+                   int has_user, int is_dj) {
   if (!(has_user && (uobjp->vc_id[0] != 0) &&
         !strcmp(uobjp->guild_id, guildid))) {
     simple_send_msg(dis, "You must be in a voice channel!", textchannelid);
@@ -372,6 +417,11 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
     } else {
       simple_send_msg(dis, "No song playing!", textchannelid);
     }
+    return;
+  }
+
+  if(!is_dj){
+    simple_send_msg(dis, "You do not have permission to use this command!", textchannelid);
     return;
   }
 
@@ -403,7 +453,7 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
 
 void skip_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                   char *guildid, char *textchannelid, int wrong_vc,
-                  int has_user) {
+                  int has_user, int is_dj) {
   if (!(has_user && (uobjp->vc_id[0] != 0) &&
         !strcmp(uobjp->guild_id, guildid))) {
     simple_send_msg(dis, "You must be in a voice channel!", textchannelid);
@@ -418,6 +468,11 @@ void skip_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
     } else {
       simple_send_msg(dis, "No song playing!", textchannelid);
     }
+    return;
+  }
+
+  if(!is_dj){
+    simple_send_msg(dis, "You do not have permission to use this command!", textchannelid);
     return;
   }
 
@@ -627,7 +682,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
 
 void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                   char *guildid, char *textchannelid, char *content,
-                  int wrong_vc, int has_user) {
+                  int wrong_vc, int has_user, int is_dj) {
   if (!(has_user && (uobjp->vc_id[0] != 0) &&
         !strcmp(uobjp->guild_id, guildid))) {
     simple_send_msg(dis, "You must be in a voice channel!", textchannelid);
@@ -638,6 +693,11 @@ void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
     simple_send_msg(
         dis, "Please make sure I am joined or in the correct voice channel.",
         textchannelid);
+    return;
+  }
+
+  if(!is_dj){
+    simple_send_msg(dis, "You do not have permission to use this command!", textchannelid);
     return;
   }
 
@@ -653,6 +713,27 @@ void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
 
   pthread_t tid;
   pthread_create(&tid, NULL, threaded_play_cmd, pobj);
+}
+
+int check_user_dj_role(discord_t *dis, cJSON *cjs, char *guildid){
+  cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
+  cJSON *member_cjs = cJSON_GetObjectItem(d_cjs, "member");
+  cJSON *roles = cJSON_GetObjectItem(member_cjs, "roles");
+
+  char key[200];
+  cJSON *role = roles->child;
+  while(role){
+    snprintf(key, sizeof(key), "%s%s%s", DISCORD_GATEWAY_DJ_ROLES, guildid, role->valuestring);
+    int found = sm_get(dis->data_dictionary, key, NULL, 0);
+    if(found){
+      return 1;
+    }
+
+    role = role->next;
+  }
+
+  fprintf(stdout, "USER NOT DJ.\n");
+  return 0;
 }
 
 /* Gateway callback. handle all messages
@@ -730,7 +811,6 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     // get channel id of the text channel where the message was sent
     char *textchannelid_nw = 0;
     char *textchannelid = strcasestr(msg, DISCORD_GATEWAY_MSG_CHANNEL_ID);
-    ;
     if (textchannelid) {
       textchannelid += 14;
       end = strchr(textchannelid, '"');
@@ -744,6 +824,11 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
       fprintf(stdout, "\n\nTEXT CHANNEL: %s\n\n", textchannelid);
     }
+
+    cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
+    int is_dj = check_user_dj_role(dis, cjs, guildid);
+    cJSON_Delete(cjs);
+
 
     // collect user info from USER INFO MAP
     user_vc_obj uobj;
@@ -773,10 +858,10 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     if ((content[0] == botprefix[0])) {
       if (!strncasecmp(content + 1, "leave", 5)) {
         leave_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
-                      has_user);
+                      has_user, is_dj);
       } else if (!strncasecmp(content + 1, "skip", 4)) {
         skip_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
-                     has_user);
+                     has_user, is_dj);
       } else if (!strncasecmp(content + 1, "desc", 4)) {
         desc_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
                      has_user);
@@ -788,7 +873,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
                            has_user);
       } else if (!strncasecmp(content + 1, "p ", 2)) {
         play_command(vgt, dis, &uobj, guildid, textchannelid, content, wrong_vc,
-                     has_user);
+                     has_user, is_dj);
       }
     }
 

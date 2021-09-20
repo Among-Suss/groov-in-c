@@ -28,6 +28,7 @@
         "unordered_set": "c",
         "initializer_list": "c",
         "valarray": "c",
-        "sbuf.structs.h": "c"
+        "sbuf.structs.h": "c",
+        "cstring": "c"
     }
 }
