@@ -518,8 +518,8 @@ int get_youtube_audio_url(char *video_id, char *url) {
   if (retval) return -1;
 
   char str[MAX_URL_LEN_MEDIA];
-  int len = read(pipeids[0], str, MAX_URL_LEN_MEDIA);
-  str[len] = 0;
+  int len = read(pipeids[0], str, MAX_URL_LEN_MEDIA - 2);
+  str[len + 1] = 0;
   close(pipeids[0]);
 
   char *urlendp = strstr(str, "\n");
@@ -862,10 +862,13 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   waitpid(pid, &retval, 0);
   if (retval) return -1;
 
-  char str[sizeof(ytobjptr->title) + sizeof(ytobjptr->link) - 64 + sizeof(ytobjptr->description)];
-  long unsigned len = read(pipeids[0], str, sizeof(str));
-  long int last_char = (len < sizeof(str) ? len : (sizeof(str) - 1));
-  str[last_char] = 0;
+  char str[sizeof(ytobjptr->title) + sizeof(ytobjptr->link) - 64 + sizeof(ytobjptr->description) 
+        + sizeof(ytobjptr->audio_url) + sizeof(ytobjptr->duration)];
+  int len = read(pipeids[0], str, sizeof(str) - 2);
+  if(len == -1){
+    return -1;
+  }
+  str[len] = 0;
 
   close(pipeids[0]);
   
