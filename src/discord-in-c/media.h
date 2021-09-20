@@ -33,7 +33,7 @@
 #include "discord.h"
 #include "cJSON.h"
 
-#define YOUTUBE_WEBPAGE_URL_SIZE 1024
+#define YOUTUBE_WEBPAGE_URL_SIZE 2048
 #define MAX_URL_LEN_MEDIA 16384
 
 typedef struct ffmpeg_process_waiter_t ffmpeg_process_waiter_t;
