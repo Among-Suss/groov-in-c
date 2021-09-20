@@ -236,6 +236,43 @@ void *threaded_play_cmd(void *ptr) {
   int insert_queue_ret_error = 0;
   if (!strncasecmp(pobj->content, "https://", 8) && 1) {
     insert_queue_ret_error = insert_queue_ydl_query(pobj->vgt->media, pobj->content, title, sizeof(title));
+    // If a playlist is found
+    if (strstr(pobj->content, "&list=") != NULL)
+    {
+      simple_send_msg(pobj->dis, "Queueing playlist...", pobj->textchannelid);
+
+      FILE *fp;
+      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist '";
+      strcat(cmd, pobj->content);
+      strcat(cmd, "'");
+      fp = popen(cmd, "r");
+      // Split by ,
+      if (fp != NULL)
+      {
+        char buf[5000], ch;
+        int i = 0;
+        while ((ch = fgetc(fp)) != EOF)
+        {
+          buf[i++] = ch;
+        }
+        buf[i] = '\0';
+
+        cJSON* video_json_list = cJSON_Parse(buf);
+        int size = cJSON_GetArraySize(video_json_list);
+
+        for (int i = 1; i < size; i++) {
+          cJSON *video_data = cJSON_GetArrayItem(video_json_list, i);
+
+          char *id = cJSON_GetStringValue(cJSON_GetObjectItem(video_data, "id"));
+          char* title = cJSON_GetStringValue(cJSON_GetObjectItem(video_data, "title"));
+
+          insert_queue_ytb_partial(pobj->vgt->media, id, title);
+        }
+
+        cJSON_Delete(video_json_list);
+      }
+      pclose(fp);
+    }
   } else {
     char youtube_dl_search_txt[2048];
     snprintf(youtube_dl_search_txt, 2048, "ytsearch1:%s", pobj->content);
@@ -270,6 +307,10 @@ void get_queue_callback(void *value, int len, void *state, int pos, int start,
   youtube_page_object_t *ytobj = value;
 
   array[pos - start] = malloc(len);
+
+  if (ytobj->title[0] == 0) {
+    get_youtube_vid_info(ytobj->link, ytobj);
+  }
 
   char text3[sizeof(ytobj->title)];
   char text4[sizeof(ytobj->title)];
@@ -525,6 +566,10 @@ void desc_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
     sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
                         0);
 
+    if (ytpobj.description[0] == 0) {
+      get_youtube_vid_info(ytpobj.link, &ytpobj);
+    }
+
     char text[sizeof(ytpobj.description)];
     char text2[sizeof(ytpobj.description)];
 
@@ -593,6 +638,12 @@ void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
     youtube_page_object_t ytpobj;
     sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
                         0);
+
+    // If partial object from playlist
+    if (ytpobj.length_in_seconds == 0 || ytpobj.title[0] == 0)
+    {
+      get_youtube_vid_info(ytpobj.link, &ytpobj);
+    }
 
     char text3[sizeof(ytpobj.title)];
     char text4[sizeof(ytpobj.title)];
@@ -765,8 +816,8 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
   discord_t *dis = state;
 
   // debug spit out
-  write(STDOUT_FILENO, msg, msg_len);
-  write(STDOUT_FILENO, "WOW WOW WOW\n", strlen("WOW WOW WOW\n"));
+  //write(STDOUT_FILENO, msg, msg_len);
+  //write(STDOUT_FILENO, "WOW WOW WOW\n", strlen("WOW WOW WOW\n"));
 
   // handle adding members on startup
   if (strcasestr(msg, "\"GUILD_CREATE\"")) {

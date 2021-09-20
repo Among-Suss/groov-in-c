@@ -29,6 +29,7 @@
         "initializer_list": "c",
         "valarray": "c",
         "sbuf.structs.h": "c",
-        "cstring": "c"
+        "cstring": "c",
+        "discord.structs.h": "c"
     }
 }

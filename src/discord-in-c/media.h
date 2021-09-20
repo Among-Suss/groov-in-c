@@ -50,3 +50,5 @@ media_player_t *modify_player(media_player_t *media, char *key_str, char *ssrc_s
                             char *cache_file_unique_name, voice_gateway_t *vgt);
 
 int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_title, int return_title_len);
+
+int insert_queue_ytb_partial(media_player_t *media, char *id, char *title);

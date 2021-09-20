@@ -29,10 +29,15 @@ def get_playlist_id(url):
 
     json_object = get_between(text, 'ytInitialData = ', ';</script>')
     parsed_json: dict = json.loads(json_object)
+
+    # Get contents
     content_list = parsed_json['contents']['twoColumnWatchNextResults']['playlist']['playlist']['contents']
 
+    # Filter out missing videos
+    content_list = [x for x in content_list if "unplayableText" not in x]
+
     return list(
-        map(lambda c: c['playlistPanelVideoRenderer']['videoId'], content_list))
+        map(lambda c: {"id": c['playlistPanelVideoRenderer']['videoId'], "title": c['playlistPanelVideoRenderer']["title"]["simpleText"]}, content_list))
     
     
 
@@ -47,6 +52,6 @@ if __name__ == "__main__":
     if command == 'description':
         print(get_description(url))
     elif command == 'playlist':
-        print(','.join(get_playlist_id(url)))
+        print(json.dumps(get_playlist_id(url)))
     else:
         sys.exit(1)

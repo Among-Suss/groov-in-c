@@ -660,6 +660,11 @@ void *media_player_threaded(void *ptr){
       break;
     }
 
+    // If partial object from playlist
+    if (ytpobj.audio_url[0] == 0) {
+      get_youtube_vid_info(ytpobj.link, &ytpobj);
+    }
+
     yptr->media_player_t_ptr->playing = 1;
     send_websocket(yptr->vgt->voice_ssl,
           "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
@@ -930,4 +935,14 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_
 
   strncpy(return_title, ytobj.title, return_title_len - 1);
   return (!ret) - 1;
+}
+
+/**
+ *  Inserts only id
+ */
+int insert_queue_ytb_partial(media_player_t *media, char* id, char* title) {
+  youtube_page_object_t ytobj = { 0 };
+  snprintf(ytobj.link, sizeof(ytobj.link), "https://www.youtube.com/watch?v=%s", id);
+  snprintf(ytobj.title, sizeof(ytobj.title), title);
+  sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
 }
