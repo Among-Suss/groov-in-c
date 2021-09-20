@@ -244,13 +244,10 @@ void *threaded_play_cmd(void *ptr) {
       strcat(cmd, pobj->content);
       strcat(cmd, "'");
       fp = popen(cmd, "r");
-      // Split by ,
-      if (fp != NULL)
-      {
+      if (fp != NULL) {
         char buf[60000], ch;
         int i = 0;
-        while ((ch = fgetc(fp)) != EOF)
-        {
+        while ((ch = fgetc(fp)) != EOF) {
           buf[i++] = ch;
         }
         buf[i] = '\0';

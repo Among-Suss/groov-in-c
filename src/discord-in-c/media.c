@@ -938,7 +938,7 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_
 }
 
 /**
- *  Inserts only id
+ *  Insert data from a json object into the song queue
  */
 int insert_queue_ytb_partial(media_player_t *media, cJSON *video_json) {
   youtube_page_object_t ytobj = { 0 };
