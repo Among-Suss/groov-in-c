@@ -233,12 +233,18 @@ void *threaded_play_cmd(void *ptr) {
 
   fprintf(stdout, "Queueing song...\n");
   char title[200] = { 0 };
-  int insert_queue_ret_error = 0;
-  if (!strncasecmp(pobj->content, "https://", 8) && 1) {
-    insert_queue_ret_error = insert_queue_ydl_query(pobj->vgt->media, pobj->content, title, sizeof(title));
+  int insert_queue_ret_error = 1;
+  int queued_playlist = 0;
+  if (!strncasecmp(pobj->content, "https://", 8)) {
+    if(!strncasecmp(pobj->content, "https://youtu.be/", 17) || !strncasecmp(pobj->content, "https://www.youtube.com/watch?v=", 32)){
+      insert_queue_ret_error = insert_queue_ydl_query(pobj->vgt->media, pobj->content, title, sizeof(title));
+    }
+    
     // If a playlist is found
-    if (strstr(pobj->content, "&list=") != NULL)
+    fprintf(stdout, "Checking for playlist...\n");
+    if (!strncasecmp(pobj->content, "https://www.youtube.com/", 24) && (strstr(pobj->content, "&list=") != NULL))
     {
+      queued_playlist = 1;
       FILE *fp;
       char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist '";
       strcat(cmd, pobj->content);
@@ -277,7 +283,7 @@ void *threaded_play_cmd(void *ptr) {
     char message[300];
     snprintf(message, sizeof(message), "Queued song: %s", title);
     simple_send_msg(pobj->dis, message ,pobj->textchannelid);
-  }else{
+  }else if(!queued_playlist){
     simple_send_msg(pobj->dis, "Unable to queue song. Please double check the link or whether video is age restricted." ,pobj->textchannelid);
   }
 
@@ -303,7 +309,7 @@ void get_queue_callback(void *value, int len, void *state, int pos, int start,
   array[pos - start] = malloc(len);
 
   if (ytobj->title[0] == 0) {
-    get_youtube_vid_info(ytobj->link, ytobj);
+    complete_youtube_object_fields(ytobj);
   }
 
   char text3[sizeof(ytobj->title)];
@@ -561,7 +567,7 @@ void desc_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                         0);
 
     if (ytpobj.description[0] == 0) {
-      get_youtube_vid_info(ytpobj.link, &ytpobj);
+      complete_youtube_object_fields(&ytpobj);
     }
 
     char text[sizeof(ytpobj.description)];
@@ -660,9 +666,9 @@ void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
     fprintf(stdout, "bar: %s\n", bar);
 
     char time_str[200] = {0};
-    char hour[10] = {0};
+    char hour[20] = {0};
     if (ytpobj.length_in_seconds / 3600 > 0) {
-      sprintf(hour, "%02ld:", lapse / 3600);
+      snprintf(hour, sizeof(hour), "%02ld:", lapse / 3600);
     }
 
     snprintf(time_str, sizeof(time_str), "%s%02ld:%02ld [%s] %s", hour,

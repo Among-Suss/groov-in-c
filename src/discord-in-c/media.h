@@ -42,6 +42,8 @@ typedef struct media_player_t media_player_t;
 
 typedef struct youtube_player_t youtube_player_t;
 
+typedef struct youtube_page_object_t youtube_page_object_t;
+
 media_player_t *start_player(char *key_str, char *ssrc_str,
                             char *dest_address, char *dest_port, int socketfd,
                             char *cache_file_unique_name, voice_gateway_t *vgt);
@@ -52,4 +54,6 @@ media_player_t *modify_player(media_player_t *media, char *key_str, char *ssrc_s
 
 int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_title, int return_title_len);
 
-int insert_queue_ytb_partial(media_player_t *media, cJSON *video_json);
+void insert_queue_ytb_partial(media_player_t *media, cJSON *video_json);
+
+void complete_youtube_object_fields(youtube_page_object_t *ytobjptr);

@@ -662,7 +662,7 @@ void *media_player_threaded(void *ptr){
 
     // If partial object from playlist
     if (ytpobj.audio_url[0] == 0) {
-      get_youtube_vid_info(ytpobj.link, &ytpobj);
+      complete_youtube_object_fields(&ytpobj);
     }
 
     yptr->media_player_t_ptr->playing = 1;
@@ -940,7 +940,7 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_
 /**
  *  Insert data from a json object into the song queue
  */
-int insert_queue_ytb_partial(media_player_t *media, cJSON *video_json) {
+void insert_queue_ytb_partial(media_player_t *media, cJSON *video_json) {
   youtube_page_object_t ytobj = { 0 };
 
   char *id = cJSON_GetStringValue(cJSON_GetObjectItem(video_json, "id"));
@@ -954,4 +954,9 @@ int insert_queue_ytb_partial(media_player_t *media, cJSON *video_json) {
       ytobj.length_in_seconds = length;
 
   sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
+}
+
+//finish object evaluation for necessary informations
+void complete_youtube_object_fields(youtube_page_object_t *ytobjptr){
+  get_youtube_vid_info(ytobjptr->link, ytobjptr);
 }
