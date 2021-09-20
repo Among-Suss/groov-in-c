@@ -93,7 +93,7 @@ For example:
 -p https://www.youtube.com/watch?v=h03hS1qGSLA
 ```
 
-These are all valid. There is no support for queuing playlists
+These are all valid. To queue playlists, go to the playlist page then right click on a playlist video and click copy link. Or copy the url from the page that is playing the song inside the playlist. Queuing the playlist link directly (not the video link) does not work yet.
 
 ### Bot configuration
 Bot server specific configuration can be applied by putting the configuration string in the server's welcome channel topic. The configuration string follows a very specific syntax.
