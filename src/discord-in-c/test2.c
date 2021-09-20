@@ -241,16 +241,34 @@ void *threaded_play_cmd(void *ptr) {
     
     // If a playlist is found
     fprintf(stdout, "Checking for playlist...\n");
-    if (!strncasecmp(pobj->content, "https://www.youtube.com/", 24) && (strstr(pobj->content, "&list=") != NULL))
+    if (!strncasecmp(pobj->content, "https://www.youtube.com/", 24) && ((strstr(pobj->content, "&list=") != NULL) || (strstr(pobj->content, "playlist") != NULL)))
     {
       queued_playlist = 1;
+
+      // Search for index
+      int start_index = 0;
+      char* substr;
+      if ((substr = strstr(pobj->content, "&index=")) != NULL) {
+        char buf[20];
+        int i = 0;
+        while (substr[i + 7] != '&')
+        {
+          buf[i] = substr[i + 7];
+          i++;
+        }
+        buf[i] = '\0';
+
+        start_index = atoi(buf) - 1;
+      }
+
       FILE *fp;
-      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist '";
+      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist ";
       strcat(cmd, pobj->content);
-      strcat(cmd, "'");
       fp = popen(cmd, "r");
       if (fp != NULL) {
-        char buf[60000], ch;
+        char *buf, ch;
+        buf = malloc(sizeof(char) * 60000);
+
         int i = 0;
         while ((ch = fgetc(fp)) != EOF) {
           buf[i++] = ch;
@@ -261,13 +279,14 @@ void *threaded_play_cmd(void *ptr) {
         int size = cJSON_GetArraySize(video_json_list);
 
         char msg[1024];
-        sprintf(msg, "Queued %d songs", size);
+        sprintf(msg, "Queued %d songs", size - start_index);
         simple_send_msg(pobj->dis, msg, pobj->textchannelid);
 
-        for (int i = 1; i < size; i++) {
-          insert_queue_ytb_partial(pobj->vgt->media, cJSON_GetArrayItem(video_json_list, i));
+        for (int j = start_index + 1; j < size; j++) {
+          insert_queue_ytb_partial(pobj->vgt->media, cJSON_GetArrayItem(video_json_list, j));
         }
 
+        free(buf);
         cJSON_Delete(video_json_list);
       }
       pclose(fp);
