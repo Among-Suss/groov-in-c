@@ -2,6 +2,7 @@
 
 #include "litesocket/litesocket.h"
 #include "strmap.h"
+#include "cJSON.h"
 #include <semaphore.h>
 
 #define DISCORD_API_VERSION 9
@@ -52,7 +53,7 @@
 
 #define DISCORD_GATEWAY_HEARTBEAT                                              \
   "{\"op\": 1,\"d\": {},\"s\": null,\"t\": null}"
-#define DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE "\"op\":10"
+#define DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE 10
 #define DISCORD_GATEWAY_AUTH_STRING "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": %s,\"properties\": {\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": \"discord_dot_c\"}}}"
 #define DISCORD_GATEWAY_REAUTH_STRING "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": %s,\"properties\": {\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": \"discord_dot_c\"}}}"
 
@@ -85,12 +86,11 @@
 #define DISCORD_VOICE_UDP_ENC_DEFAULT "xsalsa20_poly1305"
 
 // gateway reply search strings and dict keys
-#define DISCORD_GATEWAY_READY "\"t\":\"READY\""
+#define DISCORD_GATEWAY_READY "READY"
 #define DISCORD_GATEWAY_USERNAME "username"
 #define DISCORD_GATEWAY_BOT_ID "id"
-#define DISCORD_GATEWAY_VOICE_STATE_UPDATE "VOICE_STATE_UPDATE\""
-#define DISCORD_GATEWAY_VOICE_SERVER_UPDATE "VOICE_SERVER_UPDATE\""
-#define DISCORD_GATEWAY_HEARTBEAT_INTERVAL "\"heartbeat_interval"
+#define DISCORD_GATEWAY_VOICE_STATE_UPDATE "VOICE_STATE_UPDATE"
+#define DISCORD_GATEWAY_VOICE_SERVER_UPDATE "VOICE_SERVER_UPDATE"
 #define DISCORD_GATEWAY_VOICE_SESSION_ID "session_id"
 #define DISCORD_GATEWAY_VOICE_USERNAME "username"
 #define DISCORD_GATEWAY_VOICE_USER_ID "\"id\""
@@ -105,8 +105,9 @@
 #define DISCORD_GATEWAY_ROLE_EVERYONE "EVERYONE"
 
 // voice gateway search strings and dict keys
-#define DISCORD_VOICE_GT_INFO_OPCODE "\"op\":2"
-#define DISCORD_VOICE_GT_UDP_HANDSHAKE "\"op\":4"
+#define DISCORD_VOICE_GT_HEARTBEAT_OPCODE 8
+#define DISCORD_VOICE_GT_INFO_OPCODE 2
+#define DISCORD_VOICE_GT_UDP_HANDSHAKE 4
 #define DISCORD_VOICE_PORT "port"
 #define DISCORD_VOICE_SSRC "ssrc"
 #define DISCORD_VOICE_IP "ip"

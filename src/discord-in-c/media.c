@@ -692,6 +692,7 @@ void *media_player_threaded(void *ptr){
     sbuf_remove_end_value(&(yptr->media_player_t_ptr->song_queue), 0, 0, 0);
   }
 
+  close(yptr->media_player_t_ptr->udp_fd);
 
   sbuf_deinit(&(yptr->media_player_t_ptr->song_queue));
 
@@ -755,6 +756,8 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
                             char *dest_address, char *dest_port, int socketfd,
                             char *cache_file_unique_name, voice_gateway_t *vgt)
 {
+  close(media->udp_fd);
+
   sem_wait(&(media->destination_info_mutex));
 
   //fix key

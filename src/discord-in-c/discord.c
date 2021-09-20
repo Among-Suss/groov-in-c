@@ -1,6 +1,8 @@
-#include "discord.h"
+#include "media.h"
 #include "discord.structs.h"
 #include "litesocket/litesocket.structs.h"
+#include "sbuf.structs.h"
+#include "media.structs.h"
 
 void authenticate_gateway(discord_t *discord, char *discord_intent);
 void internal_gateway_callback(SSL *ssl, void *state, char *msg,
@@ -128,71 +130,44 @@ void connect_gateway(discord_t *discord_data) {
 }
 
 //handles gateway init heartbeat
-void start_heartbeat_gateway(discord_t *discord, char *msg) {
-  char *heartbeatp = strcasestr(msg, DISCORD_GATEWAY_HEARTBEAT_INTERVAL);
-  heartbeatp += 21;
-  char *hbp_end = strchr(heartbeatp, ',');
-  *hbp_end = 0;
+void start_heartbeat_gateway(discord_t *discord, cJSON *cjs) {
+  cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
+  cJSON *hbp_cjs = cJSON_GetObjectItem(d_cjs, "heartbeat_interval");
 
-  discord->heartbeat_interval_usec = atoi(heartbeatp) * 1000;
+  discord->heartbeat_interval_usec = hbp_cjs->valueint * 1000;
   discord->heartbeating = 1;
 
   pthread_create(&(discord->heartbeat_tid), NULL, threaded_gateway_heartbeat,
                  discord);
+
+  fprintf(stdout, "heartbeat interval: %d\n", hbp_cjs->valueint);
 }
 
 //handle voice state obj from discord
 //when connecting to voice
-void update_voice_state(discord_t *discord, char *msg) {
-  char bot_id[DISCORD_MAX_ID_LEN];
-  int ret = sm_get(discord->data_dictionary, DISCORD_GATEWAY_BOT_ID, bot_id, DISCORD_MAX_ID_LEN);
+void update_voice_state(discord_t *discord, cJSON *cjs) {
+  cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
+
+  cJSON *userid_cjs = cJSON_GetObjectItem(d_cjs, "user_id");
+  char *botid = userid_cjs->valuestring;
+
+  cJSON *sessionid_cjs = cJSON_GetObjectItem(d_cjs, "session_id");
+  char *session_id = sessionid_cjs->valuestring;
+
+  cJSON *guildid_cjs = cJSON_GetObjectItem(d_cjs, "guild_id");
+  char *guild_id = guildid_cjs->valuestring;
+
+  cJSON *channelid_cjs = cJSON_GetObjectItem(d_cjs, "channel_id");
+  char *channel_id = channelid_cjs->valuestring;
+
+  fprintf(stdout, "Voice State change: \n  user_id:%s \n  session_id:%s \n  guild_id:%s \n  channel_id:%s \n"
+      ,botid, session_id, guild_id, channel_id);
+
+  char saved_bot_id[DISCORD_MAX_ID_LEN];
+  int ret = sm_get(discord->data_dictionary, DISCORD_GATEWAY_BOT_ID, saved_bot_id, DISCORD_MAX_ID_LEN);
   char *is_bot = 0;
   if(ret){
-    is_bot = strstr(msg, bot_id);
-  }
-
-  char *session_id = strcasestr(msg, DISCORD_GATEWAY_VOICE_SESSION_ID);
-  if(session_id)
-    session_id += 13;
-
-  char *guild_id = strcasestr(msg, DISCORD_GUILD_ID);
-  if(guild_id)
-    guild_id += 11;
-
-  char *botid = strcasestr(msg, DISCORD_GATEWAY_VOICE_USERNAME);
-  if(botid){
-    botid = strcasestr(botid, DISCORD_GATEWAY_VOICE_USER_ID);
-    botid += 6;
-  }
-
-  char *channel_id = strcasestr(msg, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID);
-  if(channel_id)
-    channel_id += 13;
-
-  //splice the strings
-  char *end;
-
-  if(session_id){
-    end = strchr(session_id, '"');
-    *end = 0;
-  }
-
-  if(guild_id){
-    end = strchr(guild_id, '"');
-    *end = 0;
-  }
-
-  if(botid){
-    end = strchr(botid, '"');
-    *end = 0;
-  }
-
-  char *channel_id_end = 0;
-  if(channel_id){
-    channel_id_end = strchr(channel_id, '"');
-    if(channel_id_end){
-      *channel_id_end = 0;
-    }
+    is_bot = strstr(botid, saved_bot_id);
   }
   
   if(is_bot){
@@ -204,19 +179,19 @@ void update_voice_state(discord_t *discord, char *msg) {
             strlen(session_id) + 1);
       sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_USER_ID, botid,
             strlen(botid) + 1);
-      if(channel_id_end){
+      if(!cJSON_IsNull(channelid_cjs)){
         sm_put(vgt->data_dictionary, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID, channel_id,
               strlen(channel_id) + 1);
+        sem_post(&(vgt->ready_state_update));
       }else{
         sm_put(vgt->data_dictionary, DISCORD_VOICE_STATE_UPDATE_CHANNEL_ID, 0,
               sizeof(char));
       }
-      sem_post(&(vgt->ready_state_update));
     }
   }else{
     user_vc_obj uobj = { 0 };
     strncpy(uobj.guild_id, guild_id, sizeof(uobj.guild_id) - 2);
-    if(channel_id){
+    if(!cJSON_IsNull(channelid_cjs)){
       strncpy(uobj.vc_id, channel_id, sizeof(uobj.vc_id) - 2);
     }else{
       uobj.vc_id[0] = 0;
@@ -229,30 +204,24 @@ void update_voice_state(discord_t *discord, char *msg) {
 
 //handles voice server object from discord
 //when connecting to voice
-void update_voice_server(discord_t *discord, char *msg) {
-  char *token = strcasestr(msg, DISCORD_GATEWAY_VOICE_TOKEN);
-  token += 8;
+void update_voice_server(discord_t *discord, cJSON *cjs) {
+  cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
 
-  char *endpoint = strcasestr(msg, DISCORD_GATEWAY_VOICE_ENDPOINT);
-  endpoint += 11;
+  cJSON *token_cjs = cJSON_GetObjectItem(d_cjs, "token");
+  char *token = token_cjs->valuestring;
 
-  char *guild_id = strcasestr(msg, DISCORD_GUILD_ID);
-  guild_id += 11;
+  cJSON *guildid_cjs = cJSON_GetObjectItem(d_cjs, "guild_id");
+  char *guild_id = guildid_cjs->valuestring;
 
-  char *end;
+  cJSON *fullendpoint_cjs = cJSON_GetObjectItem(d_cjs, "endpoint");
+  char *endpoint = fullendpoint_cjs->valuestring;
 
-  end = strchr(token, '"');
-  *end = 0;
+  char *separator = strchr(fullendpoint_cjs->valuestring, ':');
+  *separator = 0;
+  char *port = separator + 1;
 
-  end = strchr(endpoint, '"');
-  *end = 0;
-
-  end = strchr(guild_id, '"');
-  *end = 0;
-
-  char *port = strchr(endpoint, ':');
-  *port = 0;
-  port++;
+  fprintf(stdout, "Voice server change: \n  token:%s \n  guild_id:%s \n  endpoint:%s \n  port:%s \n"
+      ,token, guild_id, endpoint, port);
 
   voice_gateway_t *vgt;
   sm_get(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
@@ -280,26 +249,29 @@ void update_voice_server(discord_t *discord, char *msg) {
          strlen(port) + 1);
 
   sem_post(&(vgt->ready_server_update));
+
+  *separator = ':';
 }
 
 //handles gateway ready object in order to
 //collect bot id
-void gateway_ready(discord_t *discord, char *msg){
-  char *bot_id = strcasestr(msg, DISCORD_GATEWAY_USERNAME);
-  bot_id = strcasestr(bot_id, DISCORD_GATEWAY_BOT_ID) + 5;
+void gateway_ready(discord_t *discord, cJSON *cjs){
+  cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
+  cJSON *user_cjs = cJSON_GetObjectItem(d_cjs, "user");
+  cJSON *id_cjs = cJSON_GetObjectItem(user_cjs, "id");
 
-  char *end = strcasestr(bot_id, "\"");
-  *end = 0;
+  char *bot_id = id_cjs->valuestring;
 
   sm_put(discord->data_dictionary, DISCORD_GATEWAY_BOT_ID, bot_id,
     strlen(bot_id) + 1);
+
+  fprintf(stdout, "Gateway Ready received. Bot id: %s\n", bot_id);
 }
 
 //function called by litesocket.c bounded socket reader
 void internal_gateway_callback(SSL *ssl, void *state, char *msg,
                                unsigned long msg_len) {
   discord_t *discord = state;
-
   if(!msg){
     pthread_cancel(discord->heartbeat_tid);
     discord->heartbeating = 0;
@@ -308,43 +280,39 @@ void internal_gateway_callback(SSL *ssl, void *state, char *msg,
     connect_gateway(discord);
     return;
   }
-
   msg[msg_len] = 0;
 
-  if (strcasestr(msg, DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE) &&
+  cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
+  cJSON *t_cjs = cJSON_GetObjectItem(cjs, "t");
+  cJSON *op_cjs = cJSON_GetObjectItem(cjs, "op");
+
+  if (op_cjs->valueint == DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE &&
       !discord->heartbeating) {
-    write(STDOUT_FILENO, msg, msg_len);
-    write(STDOUT_FILENO, "\n", 1);
-    start_heartbeat_gateway(discord, msg);
-    return;
+    fprintf(stdout, "Gateway heartbeat received.\n");
+    start_heartbeat_gateway(discord, cjs);
   }
 
-  if (strcasestr(msg, DISCORD_GATEWAY_READY)) {
-    char *msg_tmp = malloc(msg_len + 2);
-    memcpy(msg_tmp, msg, msg_len + 1);
-    gateway_ready(discord, msg_tmp);
-    free(msg_tmp);
+  if (cJSON_IsString(t_cjs) && strcasestr(t_cjs->valuestring, DISCORD_GATEWAY_READY)) {
+    fprintf(stdout, "Gateway ready received.\n");
+    gateway_ready(discord, cjs);
   }
 
-  
-  if (strcasestr(msg, DISCORD_GATEWAY_VOICE_STATE_UPDATE)) {
-    char *msg_tmp = malloc(msg_len + 2);
-    memcpy(msg_tmp, msg, msg_len + 1);
-    update_voice_state(discord, msg_tmp);
-    free(msg_tmp);
+  if (cJSON_IsString(t_cjs) && strcasestr(t_cjs->valuestring, DISCORD_GATEWAY_VOICE_STATE_UPDATE)) {
+    fprintf(stdout, "Updating voice states.\n");
+    update_voice_state(discord, cjs);
   }
 
-  if (strcasestr(msg, DISCORD_GATEWAY_VOICE_SERVER_UPDATE)) {
-    char *msg_tmp = malloc(msg_len + 2);
-    memcpy(msg_tmp, msg, msg_len + 1);
-    update_voice_server(discord, msg_tmp);
-    free(msg_tmp);
+  if (cJSON_IsString(t_cjs) && strcasestr(t_cjs->valuestring, DISCORD_GATEWAY_VOICE_SERVER_UPDATE)) {
+    fprintf(stdout, "Updating voice server.\n");
+    update_voice_server(discord, cjs);
   }
 
   usercallback_f callback = discord->gateway_callback;
   if (callback) {
     callback(discord, msg, msg_len);
   }
+
+  cJSON_Delete(cjs);
 }
 
 //bind user's function to the gateway callback
@@ -381,37 +349,34 @@ void authenticate_gateway(discord_t *discord, char *discord_intent) {
 
 //VOICE GATEWAY HANDLER FUNCTIONS -------------------------------
 
-void start_heartbeat_voice_gateway(voice_gateway_t *voice, char *msg) {
-  char *heartbeatp = strcasestr(msg, DISCORD_GATEWAY_HEARTBEAT_INTERVAL);
-  heartbeatp += 21;
+void start_heartbeat_voice_gateway(voice_gateway_t *voice, cJSON *cjs) {
+  cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
+  cJSON *hbi_cjs = cJSON_GetObjectItem(d_cjs, "heartbeat_interval");
 
-  char *hbp_end = strchr(heartbeatp, '}');
-  *hbp_end = 0;
-
-  voice->heartbeat_interval_usec = atoi(heartbeatp) * 1000;
+  voice->heartbeat_interval_usec = hbi_cjs->valuedouble * 1000;
   voice->heartbeating = 1;
 
   pthread_create(&(voice->heartbeat_tid), NULL,
                  threaded_voice_gateway_heartbeat, voice);
+
+  fprintf(stdout, "Voice heartbeat interval: %f\n", hbi_cjs->valuedouble);
 }
 
-void collect_stream_info(voice_gateway_t *voice, char *msg) {
-  char *ssrc = strcasestr(msg, DISCORD_VOICE_SSRC) + 4;
-  ssrc = strcasestr(msg, DISCORD_VOICE_SSRC) + 6;
+void collect_stream_info(voice_gateway_t *voice, cJSON *cjs) {
+  cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
 
-  char *port = strcasestr(msg, DISCORD_VOICE_PORT) + 6;
+  cJSON *ssrc_cjs = cJSON_GetObjectItem(d_cjs, "ssrc");
+  int ssrc_int = ssrc_cjs->valueint;
+  char ssrc[50];
+  snprintf(ssrc, sizeof(ssrc), "%d", ssrc_int);
 
-  char *ip = strcasestr(msg, DISCORD_VOICE_IP) + 5;
+  cJSON *port_cjs = cJSON_GetObjectItem(d_cjs, "port");
+  int port_int = port_cjs->valueint;
+  char port[50];
+  snprintf(port, sizeof(port), "%d", port_int);
 
-  char *end;
-  end = strchr(ssrc, ',');
-  *end = 0;
-
-  end = strchr(port, ',');
-  *end = 0;
-
-  end = strchr(ip, '"');
-  *end = 0;
+  cJSON *ip_cjs = cJSON_GetObjectItem(d_cjs, "ip");
+  char *ip = ip_cjs->valuestring;
 
   sm_put(voice->data_dictionary, DISCORD_VOICE_SSRC, ssrc, strlen(ssrc) + 1);
   sm_put(voice->data_dictionary, DISCORD_VOICE_PORT, port, strlen(port) + 1);
@@ -420,24 +385,28 @@ void collect_stream_info(voice_gateway_t *voice, char *msg) {
   sem_post(&(voice->stream_ready));
 }
 
-void collect_secret_key(voice_gateway_t *voice, char *msg) {
-  unsigned char *key = voice->voice_encryption_key;
-  char *keystr = strcasestr(msg, DISCORD_VOICE_SECRET_KEY) + 13;
-  char *end = strchr(keystr, ']');
-  *end = 0;
+void collect_secret_key(voice_gateway_t *voice, cJSON *cjs) {
+  cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
+  cJSON *key_cjs = cJSON_GetObjectItem(d_cjs, "secret_key");
+
+  char keystr[200] = { 0 };
+  char tmp_value[5] = { 0 };
+
+  cJSON *key_array_value = key_cjs->child;
+
+  snprintf(tmp_value, sizeof(tmp_value), "%hhu", key_array_value->valueint);
+  strcat(keystr, tmp_value);
+  key_array_value = key_array_value->next;
+  while(key_array_value){
+    snprintf(tmp_value, sizeof(tmp_value), ",%hhu", key_array_value->valueint);
+    strcat(keystr, tmp_value);
+    key_array_value = key_array_value->next;
+  }
+
+  fprintf(stdout, "Secret Key for sending voice: %s\n", keystr);
 
   sm_put(voice->data_dictionary, DISCORD_VOICE_SECRET_KEY, keystr,
          strlen(keystr) + 1);
-
-  int i = 0;
-  while ((end = strchr(keystr, ','))) {
-    *end = 0;
-    key[i] = atoi(keystr);
-    keystr = end + 1;
-    i++;
-  }
-
-  key[31] = atoi(keystr);
 
   sem_post(&(voice->voice_key_ready));
 }
@@ -445,43 +414,43 @@ void collect_secret_key(voice_gateway_t *voice, char *msg) {
 void internal_voice_gateway_callback(SSL *ssl, void *state, char *msg,
                                      unsigned long msg_len) {
   voice_gateway_t *voice = state;
-
   if(!msg){
+    fprintf(stdout, "Disconnected from voice, stopping heartbeat.\n");
+
     pthread_cancel(voice->heartbeat_tid);
     voice->heartbeating = 0;
 
+    fprintf(stdout, "Attempting to reconnect.\n");
     reconnect_voice(voice);
 
     (voice->reconn_callback)(voice, 0, 0);
     return;
   }
-
   msg[msg_len] = 0;
 
-  if (strcasestr(msg, DISCORD_GATEWAY_HEARTBEAT_INTERVAL) &&
+  cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
+  cJSON *op_cjs = cJSON_GetObjectItem(cjs, "op");
+
+  if (op_cjs && op_cjs->valueint == DISCORD_VOICE_GT_HEARTBEAT_OPCODE &&
       !voice->heartbeating) {
-    write(STDOUT_FILENO, msg, msg_len);
-    write(STDOUT_FILENO, "\n", 1);
-    start_heartbeat_voice_gateway(voice, msg);
-    return;
+    start_heartbeat_voice_gateway(voice, cjs);
   }
 
-  if (strcasestr(msg, DISCORD_VOICE_GT_INFO_OPCODE)) {
-    write(STDOUT_FILENO, msg, msg_len);
-    write(STDOUT_FILENO, "\n", 1);
-    collect_stream_info(voice, msg);
-    return;
+  if (op_cjs && op_cjs->valueint == DISCORD_VOICE_GT_INFO_OPCODE) {
+    fprintf(stdout, "Collecting voice stream info.\n");
+    collect_stream_info(voice, cjs);
   }
 
-  if (strcasestr(msg, DISCORD_VOICE_GT_UDP_HANDSHAKE)) {
-    collect_secret_key(voice, msg);
-    return;
+  if (op_cjs && op_cjs->valueint == DISCORD_VOICE_GT_UDP_HANDSHAKE) {
+    collect_secret_key(voice, cjs);
   }
 
   usercallback_f callback = voice->voice_callback;
   if (callback) {
     callback(voice, msg, msg_len);
   }
+
+  cJSON_Delete(cjs);
 }
 
 void authenticate_voice_gateway(voice_gateway_t *voice, char *guild_id,
@@ -545,9 +514,13 @@ char* udp_hole_punch(voice_gateway_t *vgt, int *socketfd_retval){
   }
 
   fd = socket(addrs->ai_addr->sa_family, SOCK_DGRAM, IPPROTO_UDP);
-  //check for fd < 0 Couldn't create socket
+  if(fd < 0){
+    fprintf(stderr, "Error openning socket in udp hole punch.\n");
+  }
   ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
-  //check ret < 0 Couldn't set socket options
+  if(ret < 0){
+    fprintf(stderr, "Error setsockopt in udp hole punch.\n");
+  }
 
   char packet[74];
   memset(packet, 0, 74);
@@ -561,6 +534,9 @@ char* udp_hole_punch(voice_gateway_t *vgt, int *socketfd_retval){
   packet[7] = 0x6A;
 
   ret = sendto(fd, packet, 74, 0,addrs->ai_addr, addrs->ai_addrlen);
+  if(ret < 0){
+    fprintf(stderr, "Error sending packet in udp holepunch.\n");
+  }
 
   char *buffer = malloc(DISCORD_MAX_MSG_LEN);
   const int sizeofbuffer = DISCORD_MAX_MSG_LEN;
@@ -568,17 +544,48 @@ char* udp_hole_punch(voice_gateway_t *vgt, int *socketfd_retval){
   struct sockaddr_storage src_addr;
   socklen_t src_addr_len=sizeof(src_addr);
 
-  int cnt = 0;
-  cnt = recvfrom(fd,buffer,sizeofbuffer,0,(struct sockaddr*)&src_addr,&src_addr_len);
-  for(int i = 0; i < cnt; i++){
-    printf("%x ", buffer[i]);
+  ret = recvfrom(fd,buffer,sizeofbuffer,0,(struct sockaddr*)&src_addr,&src_addr_len);
+  if(ret < 0){
+    fprintf(stderr, "Error receiving UDP for Hole Punching!\n");
   }
-  printf("\n");
 
   *socketfd_retval = fd;
   freeaddrinfo(addrs);
 
   return buffer;
+}
+
+void cancel_voice_gateway_reconnect(voice_gateway_t *vgt, char *guild_id){
+  //wait for song mutex
+  sem_wait(&(vgt->media->insert_song_mutex));
+
+  //skipping and quitting media player
+  youtube_page_object_t yobj = {0};
+  sbuf_insert_front_value((&(vgt->media->song_queue)), &yobj, sizeof(yobj));
+  sem_post(&(vgt->media->quitter));
+  sem_post(&(vgt->media->skipper));
+
+  //delete voice gateway object from discord object and request a close
+  char *ptr = 0;
+  sm_put(vgt->discord->voice_gateway_map, guild_id, (char *)&ptr, sizeof(void *));
+  send_websocket(vgt->voice_ssl, "request close", strlen("request close"), 8);
+
+  //send message to leave voice channel
+  char msg[2000];
+  snprintf(msg, 2000, DISCORD_GATEWAY_VOICE_LEAVE, guild_id);
+  sem_wait(&(vgt->discord->gateway_writer_mutex));
+  send_websocket(vgt->discord->gateway_ssl, msg, strlen(msg), WEBSOCKET_OPCODE_MSG);
+  sem_post(&(vgt->discord->gateway_writer_mutex));
+
+  if (vgt->voice_ssl)
+    disconnect_and_free_ssl(vgt->voice_ssl);
+
+  sm_delete(vgt->data_dictionary);
+  free(vgt);
+
+  fprintf(stdout, "Successfully left voice channel and cleaned up.\n");
+
+  pthread_exit(NULL);
 }
 
 void reconnect_voice(voice_gateway_t *vgt){
@@ -596,8 +603,6 @@ void reconnect_voice(voice_gateway_t *vgt){
   sm_get(vgt->data_dictionary, DISCORD_VOICE_GATEWAY_GUILD_ID, guild_id, 
          DISCORD_MAX_ID_LEN);
 
-  //sem_wait(&(vgt->ready_state_update));
-  //sem_wait(&(vgt->ready_server_update));
   time_t current_time;
   time(&current_time);
   time_t elapsed = current_time - vgt->last_reconnection_time;
@@ -626,9 +631,17 @@ void reconnect_voice(voice_gateway_t *vgt){
 
     fprintf(stdout, "Waiting for reply [ready_state_update]\n");
 
-    sem_wait(&(vgt->ready_state_update));
+    struct timespec tms;
+    clock_gettime(CLOCK_REALTIME, &tms);
+    tms.tv_sec = tms.tv_sec + 5;
+    int smret = sem_timedwait(&(vgt->ready_state_update), &tms);
+    if(smret != 0){
+      free(msg);
+      cancel_voice_gateway_reconnect(vgt, guild_id);
+      return;
+    }
 
-    fprintf(stdout, "Attempting to reconnect!\n");
+    fprintf(stdout, "Reply received... connecting!\n");
 
     free(msg);
   }

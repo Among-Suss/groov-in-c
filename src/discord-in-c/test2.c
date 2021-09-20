@@ -861,23 +861,13 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
     cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
 
-    char *guildid_cp = 0;
-    char *userid_cp = 0;
-    char *textchannelid_nw = 0;
-
     //get message content
     cJSON *content_cjs = cJSON_GetObjectItem(d_cjs, "content");
     char *content = content_cjs->valuestring;
 
     // get guild_id
-    char *guildid = strcasestr(msg, "guild_id\"");
-    guildid += 11;
-    char *end = strchr(guildid, '"');
-    *end = 0;
-    guildid_cp = malloc(strlen(guildid) + 1);
-    strcpy(guildid_cp, guildid);
-    *end = '"';
-    guildid = guildid_cp;
+    cJSON *guild_cjs = cJSON_GetObjectItem(d_cjs, "guild_id");
+    char *guildid = guild_cjs->valuestring;
 
     // get the bot prefix for this guild
     char botprefix[10] = {0};
@@ -896,31 +886,13 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     }
 
     // get the user id of the person sending message
-    char *userid = strcasestr(msg, DISCORD_GATEWAY_VOICE_USERNAME);
-    if (userid) {
-      userid = strcasestr(userid, DISCORD_GATEWAY_VOICE_USER_ID);
-      userid += 6;
-      end = strchr(userid, '"');
-      *end = 0;
-      userid_cp = malloc(strlen(userid) + 1);
-      strcpy(userid_cp, userid);
-      *end = '"';
-      userid = userid_cp;
-    }
+    cJSON *author_cjs = cJSON_GetObjectItem(d_cjs, "author");
+    cJSON *uid_cjs = cJSON_GetObjectItem(author_cjs, "id");
+    char *userid = uid_cjs->valuestring;
 
     // get channel id of the text channel where the message was sent
-    char *textchannelid = strcasestr(msg, DISCORD_GATEWAY_MSG_CHANNEL_ID);
-    if (textchannelid) {
-      textchannelid += 14;
-      end = strchr(textchannelid, '"');
-      *end = 0;
-
-      textchannelid_nw = malloc(strlen(textchannelid) + 1);
-      strcpy(textchannelid_nw, textchannelid);
-
-      *end = '"';
-      textchannelid = textchannelid_nw;
-    }
+    cJSON *textchannelid_cjs = cJSON_GetObjectItem(d_cjs, "channel_id");
+    char *textchannelid = textchannelid_cjs->valuestring;
 
     //check if user is a DJ
     int is_dj = check_user_dj_role(dis, cjs, guildid);    
@@ -972,15 +944,6 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
     cJSON_Delete(cjs);
 
-    if (userid_cp) {
-      free(userid_cp);
-    }
-    if (guildid_cp) {
-      free(guildid_cp);
-    }
-    if (textchannelid_nw) {
-      free(textchannelid_nw);
-    }
   }
 }
 
