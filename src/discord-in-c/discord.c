@@ -55,16 +55,13 @@ discord_t *init_discord(char *bot_token, char *discord_intent) {
 //These functions deal with cleanup code
 
 void free_voice_gateway(voice_gateway_t *vgt){
-  fprintf(stdout, "\n\ntest1\n\n");
   pthread_cancel(vgt->voice_gate_listener_tid);
   pthread_cancel(vgt->heartbeat_tid);
-  fprintf(stdout, "\n\ntest2\n\n");
+  
   if (vgt->voice_ssl)
     disconnect_and_free_ssl(vgt->voice_ssl);
 
-  fprintf(stdout, "\n\ntest3\n\n");
   sm_delete(vgt->data_dictionary);
-  fprintf(stdout, "\n\ntest4\n\n");
   free(vgt);
 }
 
@@ -202,8 +199,6 @@ void update_voice_state(discord_t *discord, char *msg) {
     voice_gateway_t *vgt = 0;
     int ret = sm_get(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
 
-    fprintf(stdout, "\n\ndebug vc channel id: %s \n...%d...\n", channel_id, ret);
-
     if(ret && vgt){
       sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_SESSION_ID, session_id,
             strlen(session_id) + 1);
@@ -227,12 +222,9 @@ void update_voice_state(discord_t *discord, char *msg) {
       uobj.vc_id[0] = 0;
     }
     strncpy(uobj.user_id, botid, sizeof(uobj.user_id) - 2);
-
-    fprintf(stdout, "\n\nupdating user vc:%s\n\n", uobj.vc_id);
     sm_put(discord->user_vc_map, uobj.user_id, (char *)&uobj, sizeof(uobj));
   }
 
-  fprintf(stderr, "FINISHED THE UPDATE WELL>>>\n");
 }
 
 //handles voice server object from discord
@@ -286,8 +278,6 @@ void update_voice_server(discord_t *discord, char *msg) {
          strlen(endpoint) + 1);
   sm_put(discord->data_dictionary, dgvp_notvoice, port,
          strlen(port) + 1);
-
-  fprintf(stderr, "test:%s\n", dgvt_notvoice);
 
   sem_post(&(vgt->ready_server_update));
 }
@@ -500,9 +490,6 @@ void authenticate_voice_gateway(voice_gateway_t *voice, char *guild_id,
   snprintf(msg, DISCORD_MAX_MSG_LEN, DISCORD_VOICE_AUTH_STRING, guild_id,
            bot_uid, session_id, token);
 
-  //debug
-  fprintf(stdout, "authen voice msg: %s\n", msg);
-
   sem_wait(&(voice->voice_writer_mutex));
   send_websocket(voice->voice_ssl, msg, strlen(msg), WEBSOCKET_OPCODE_MSG);
   sem_post(&(voice->voice_writer_mutex));
@@ -513,9 +500,6 @@ void authenticate_voice_gateway_reconnect(voice_gateway_t *voice, char *guild_id
   char msg[DISCORD_MAX_MSG_LEN];
   snprintf(msg, DISCORD_MAX_MSG_LEN, DISCORD_VOICE_REAUTH_STRING, guild_id,
            session_id, token);
-
-  //debug
-  fprintf(stdout, "authen voice msg: %s\n", msg);
 
   sem_wait(&(voice->voice_writer_mutex));
   send_websocket(voice->voice_ssl, msg, strlen(msg), WEBSOCKET_OPCODE_MSG);
@@ -632,8 +616,6 @@ void reconnect_voice(voice_gateway_t *vgt){
     int channel_id_len = strlen(channel_id);
     int gate_vo_join_len = strlen(DISCORD_GATEWAY_VOICE_JOIN);
 
-    fprintf(stdout, "\n\n\nDEBUG::::::%s\n\n\n", channel_id);
-
     char *msg = malloc(guild_id_len + channel_id_len + gate_vo_join_len);
     snprintf(msg, guild_id_len + channel_id_len + gate_vo_join_len,
             DISCORD_GATEWAY_VOICE_JOIN, guild_id, channel_id);
@@ -642,11 +624,11 @@ void reconnect_voice(voice_gateway_t *vgt){
     send_websocket(vgt->discord->gateway_ssl, msg, strlen(msg), WEBSOCKET_OPCODE_MSG);
     sem_post(&(vgt->discord->gateway_writer_mutex));
 
-    fprintf(stdout, "\n\n\n WAITING FOR REPLY FROM READY \n\n\n");
+    fprintf(stdout, "Waiting for reply [ready_state_update]\n");
 
     sem_wait(&(vgt->ready_state_update));
 
-    fprintf(stdout, "\n\n\n reconnecting...... \n\n\n");
+    fprintf(stdout, "Attempting to reconnect!\n");
 
     free(msg);
   }
@@ -672,7 +654,6 @@ void reconnect_voice(voice_gateway_t *vgt){
   vgt->voice_gate_listener_tid =
       bind_websocket_listener(voice_ssl, vgt, internal_voice_gateway_callback);
 
-  fprintf(stdout, "\n\n\nDEBUG::::::%s\n\n\n", guild_id);
   if(vgt->reconnection_count){
     authenticate_voice_gateway(vgt, guild_id, botuid, sessionid, token);
   }else{
@@ -694,8 +675,6 @@ void reconnect_voice(voice_gateway_t *vgt){
 
   portdisptr[0] = *(ipaddr + 65);
   portdisptr[1] = *(ipaddr + 64);
-
-  fprintf(stdout, "\n\n%d\n%s\n", portdis, ipaddr);
 
   char portstr[100];
   snprintf(portstr, 100, "%d", portdis);
@@ -732,8 +711,6 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
   vgt->discord = discord;
   sm_put(vgt->data_dictionary, DISCORD_VOICE_GATEWAY_GUILD_ID, guild_id, guild_id_len + 1);
 
-  fprintf(stdout, "\n\n\nDEBUG::::::%s\n\n\n", guild_id);
-
   sm_put(discord->voice_gateway_map, guild_id, (char *)&vgt, sizeof(void *));
   
 
@@ -741,12 +718,12 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
   snprintf(msg, guild_id_len + channel_id_len + gate_vo_join_len,
            DISCORD_GATEWAY_VOICE_JOIN, guild_id, channel_id);
 
-  fprintf(stdout, "\n\n\nREQUESTING JOIN VOICE\n\n\n");
+  fprintf(stdout, "Sending request to join voice channel.\n");
   sem_wait(&(discord->gateway_writer_mutex));
   send_websocket(discord->gateway_ssl, msg, strlen(msg), WEBSOCKET_OPCODE_MSG);
   sem_post(&(discord->gateway_writer_mutex));
 
-  fprintf(stdout, "\n\n\nWAITING FOR SERVER UPDATE\n\n\n");
+  fprintf(stdout, "Waiting for server update.\n");
   struct timespec tms;
   clock_gettime(CLOCK_REALTIME, &tms);
   tms.tv_sec = tms.tv_sec + 5;
@@ -760,7 +737,7 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
   if(wait_server)
     sem_wait(&(vgt->ready_server_update));
   else{
-    fprintf(stdout, "\nwait 3 seconds max\n");
+    fprintf(stdout, "Waiting for voice server info. (3 seconds timeout)\n");
     clock_gettime(CLOCK_REALTIME, &tms);
     tms.tv_sec = tms.tv_sec + 3;
     sem_timedwait(&(vgt->ready_server_update), &tms);
@@ -784,9 +761,6 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
     sm_get(discord->data_dictionary, dgvp_notvoice, port,
          100);
 
-    fprintf(stderr, "test:%s\n\n", dgvt_notvoice);
-    fprintf(stderr, "test:%s\n\n", endpoint);
-    fflush(stderr);
 
     sm_put(vgt->data_dictionary, DISCORD_GATEWAY_VOICE_TOKEN, token,
          strlen(token) + 1);
@@ -844,8 +818,6 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
 
   portdisptr[0] = *(ipaddr + 65);
   portdisptr[1] = *(ipaddr + 64);
-
-  fprintf(stdout, "\n\n%d\n%s\n", portdis, ipaddr);
 
   char portstr[100];
   snprintf(portstr, 100, "%d", portdis);

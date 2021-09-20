@@ -314,8 +314,10 @@ void sbuf_iterate(struct sbuf_t *sp, sbuf_iterate_callback_f callback, void *sta
 
   int pos = 0;
   linked_node_t *node = sp->back->prev;
-  while(node != sp->front && pos <= end_pos && pos >= start_pos){
-    callback(node->value, node->len, state, pos, start_pos, end_pos);
+  while(node != sp->front && pos <= end_pos){
+    if(pos >= start_pos){
+      callback(node->value, node->len, state, pos, start_pos, end_pos);
+    }
     pos++;
     node = node->prev;
   }

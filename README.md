@@ -79,7 +79,7 @@ The list here assumes the prefix is "-".
 ```
 Play music:                 -p [youtube link or text to search youtube]
 Skip music:                 -skip
-Show queue:                 -queue
+Show queue:                 -queue [page number]
 Show current song:          -np
 Show youtube description    -desc
 Make the bot leave          -leave

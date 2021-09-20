@@ -674,7 +674,7 @@ void *media_player_threaded(void *ptr){
 
     clock_gettime(CLOCK_REALTIME, &now);
     long video_age = now.tv_sec - ytpobj.audio_url_create_date.tv_sec;
-    fprintf(stdout, "\nVideo age:%ld\n\n", video_age);
+    fprintf(stdout, "Video age:%ld\n", video_age);
     if(video_age < 600 && video_age >= 0){
       memcpy(link, ytpobj.audio_url, sizeof(ytpobj.audio_url));
       play_youtube_url(link, yptr->key_str, yptr->ssrc_str,
@@ -867,8 +867,6 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   long int last_char = (len < sizeof(str) ? len : (sizeof(str) - 1));
   str[last_char] = 0;
 
-  fprintf(stdout, "\n\ndesc:%s\n\n", str);
-
   close(pipeids[0]);
   
   char *uid = strchr(str, '\n');
@@ -895,8 +893,6 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description) - 2);
   strncpy(ytobjptr->duration, duration, sizeof(ytobjptr->duration) - 2);
 
-  fprintf(stdout, "\n\nVID DURATION IN SECONDS: %s\n\n", duration);
-
   char *time_sep = strchr(duration, ':');
   if(!time_sep){
     ytobjptr->length_in_seconds = atoi(duration);
@@ -913,7 +909,7 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
     }
   }
   
-  fprintf(stdout, "\n\nVID DURATION IN SECONDS: %d\n\n", ytobjptr->length_in_seconds);
+  fprintf(stdout, "Video information resolved: %s\n", ytobjptr->title);
 
   clock_gettime(CLOCK_REALTIME, &(ytobjptr->audio_url_create_date));
 
