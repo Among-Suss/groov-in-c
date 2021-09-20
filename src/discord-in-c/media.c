@@ -940,9 +940,18 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_
 /**
  *  Inserts only id
  */
-int insert_queue_ytb_partial(media_player_t *media, char* id, char* title) {
+int insert_queue_ytb_partial(media_player_t *media, cJSON *video_json) {
   youtube_page_object_t ytobj = { 0 };
+
+  char *id = cJSON_GetStringValue(cJSON_GetObjectItem(video_json, "id"));
+  char *title = cJSON_GetStringValue(cJSON_GetObjectItem(video_json, "title"));
+  char *duration = cJSON_GetStringValue(cJSON_GetObjectItem(video_json, "duration"));
+  int length = (int)cJSON_GetNumberValue(cJSON_GetObjectItem(video_json, "length"));
+
   snprintf(ytobj.link, sizeof(ytobj.link), "https://www.youtube.com/watch?v=%s", id);
   snprintf(ytobj.title, sizeof(ytobj.title), title);
+  snprintf(ytobj.duration, sizeof(ytobj.duration), duration);
+      ytobj.length_in_seconds = length;
+
   sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
 }

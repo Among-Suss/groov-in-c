@@ -16,19 +16,23 @@ def get_description(url):
 
     return get_between(text, '"description":{"simpleText":"', '"},').replace("\\n", "\n")
 
-def get_playlist_id(url):
+def get_playlist_id(url, do_save=False):
     """Retrieves the video description
 
     Args:
         url (str): Video url
 
     Returns:
-        list: List of ids
+        dict
     """
     text = requests.get(url).text
 
-    json_object = get_between(text, 'ytInitialData = ', ';</script>')
-    parsed_json: dict = json.loads(json_object)
+    json_string = get_between(text, 'ytInitialData = ', ';</script>')
+    parsed_json: dict = json.loads(json_string)
+
+    if do_save:
+        with open('test.json', 'w') as fp:
+            fp.write(json_string)
 
     # Get contents
     content_list = parsed_json['contents']['twoColumnWatchNextResults']['playlist']['playlist']['contents']
@@ -36,8 +40,27 @@ def get_playlist_id(url):
     # Filter out missing videos
     content_list = [x for x in content_list if "unplayableText" not in x]
 
-    return list(
-        map(lambda c: {"id": c['playlistPanelVideoRenderer']['videoId'], "title": c['playlistPanelVideoRenderer']["title"]["simpleText"]}, content_list))
+    dict_list = []
+
+    for data in content_list:
+        video = data['playlistPanelVideoRenderer']
+
+        duration = video["lengthText"]["simpleText"]
+        length_vals = duration.split(":")
+
+        if len(length_vals) > 2:
+            length = int(length_vals[0])*3600 + int(length_vals[1])*60 + int(length_vals[2])
+        else:
+            length = int(length_vals[0])*60 + int(length_vals[1])
+
+        dict_list.append({
+            "id": video['videoId'],
+            "title": video["title"]["simpleText"],
+            "duration": duration,
+            "length": length
+        }) 
+
+    return dict_list
     
     
 
@@ -52,6 +75,6 @@ if __name__ == "__main__":
     if command == 'description':
         print(get_description(url))
     elif command == 'playlist':
-        print(json.dumps(get_playlist_id(url)))
+        print(json.dumps(get_playlist_id(url, True)))
     else:
         sys.exit(1)

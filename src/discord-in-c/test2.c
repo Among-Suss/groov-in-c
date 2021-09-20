@@ -239,8 +239,6 @@ void *threaded_play_cmd(void *ptr) {
     // If a playlist is found
     if (strstr(pobj->content, "&list=") != NULL)
     {
-      simple_send_msg(pobj->dis, "Queueing playlist...", pobj->textchannelid);
-
       FILE *fp;
       char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist '";
       strcat(cmd, pobj->content);
@@ -249,7 +247,7 @@ void *threaded_play_cmd(void *ptr) {
       // Split by ,
       if (fp != NULL)
       {
-        char buf[5000], ch;
+        char buf[60000], ch;
         int i = 0;
         while ((ch = fgetc(fp)) != EOF)
         {
@@ -260,13 +258,12 @@ void *threaded_play_cmd(void *ptr) {
         cJSON* video_json_list = cJSON_Parse(buf);
         int size = cJSON_GetArraySize(video_json_list);
 
+        char msg[1024];
+        sprintf(msg, "Queued %d songs", size);
+        simple_send_msg(pobj->dis, msg, pobj->textchannelid);
+
         for (int i = 1; i < size; i++) {
-          cJSON *video_data = cJSON_GetArrayItem(video_json_list, i);
-
-          char *id = cJSON_GetStringValue(cJSON_GetObjectItem(video_data, "id"));
-          char* title = cJSON_GetStringValue(cJSON_GetObjectItem(video_data, "title"));
-
-          insert_queue_ytb_partial(pobj->vgt->media, id, title);
+          insert_queue_ytb_partial(pobj->vgt->media, cJSON_GetArrayItem(video_json_list, i));
         }
 
         cJSON_Delete(video_json_list);
@@ -639,12 +636,6 @@ void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
     sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
                         0);
 
-    // If partial object from playlist
-    if (ytpobj.length_in_seconds == 0 || ytpobj.title[0] == 0)
-    {
-      get_youtube_vid_info(ytpobj.link, &ytpobj);
-    }
-
     char text3[sizeof(ytpobj.title)];
     char text4[sizeof(ytpobj.title)];
 
@@ -672,7 +663,12 @@ void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
     fprintf(stdout, "bar: %s\n", bar);
 
     char time_str[200] = {0};
-    snprintf(time_str, sizeof(time_str), "%ld:%ld:%ld [%s] %s", lapse / 3600,
+    char hour[10] = {0};
+    if (ytpobj.length_in_seconds / 3600 > 0) {
+      sprintf(hour, "%02ld:", lapse / 3600);
+    }
+
+    snprintf(time_str, sizeof(time_str), "%s%02ld:%02ld [%s] %s", hour,
              (lapse / 60) % 60, lapse % 60, bar, ytpobj.duration);
 
     snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,

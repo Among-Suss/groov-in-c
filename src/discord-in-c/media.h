@@ -31,6 +31,7 @@
 #include "sbuf.h"
 #include "litesocket/litesocket.h"
 #include "discord.h"
+#include "cJSON.h"
 
 #define YOUTUBE_WEBPAGE_URL_SIZE 1024
 #define MAX_URL_LEN_MEDIA 16384
@@ -51,4 +52,4 @@ media_player_t *modify_player(media_player_t *media, char *key_str, char *ssrc_s
 
 int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_title, int return_title_len);
 
-int insert_queue_ytb_partial(media_player_t *media, char *id, char *title);
+int insert_queue_ytb_partial(media_player_t *media, cJSON *video_json);
