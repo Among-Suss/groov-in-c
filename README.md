@@ -106,6 +106,12 @@ Prefix:
     config      - prefix
     value       - any single character
     example     - @groov-in-c prefix! end
+
+DJ Roles (Permission to control music):
+    config      - djroles
+    value       - coma separated values of roles enclosed in double quotes
+    example     - @groov-in-c djroles"DJ","admin","Music Guy" end
+    note        - if djroles is not specified, everyone will be able to play music
 ```
 More configurations may be added in the future.
 

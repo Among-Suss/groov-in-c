@@ -289,6 +289,8 @@ void get_queue_callback(void *value, int len, void *state, int pos, int start,
  *
  */
 void set_guild_config(discord_t *discord, char *msg, int msg_len) {
+  int has_djroles_config = 0;
+
   cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
   cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
   cJSON *gid_cjs = cJSON_GetObjectItem(d_cjs, "id");
@@ -343,12 +345,12 @@ void set_guild_config(discord_t *discord, char *msg, int msg_len) {
 
   char *settings = strstr(msg, botnamesearch);
   if (!settings) {
-    return;
+    goto CLEANUP_GUILD_CONFIG;
   }
 
   settings = strchr(settings, ' ');
   if (!settings) {
-    return;
+    goto CLEANUP_GUILD_CONFIG;
   }
   settings++;
 
@@ -362,6 +364,8 @@ void set_guild_config(discord_t *discord, char *msg, int msg_len) {
 
       sm_put(discord->data_dictionary, key, &prefix, sizeof(prefix));
     } else if (!strncasecmp(settings, "djroles", 7)) {
+      has_djroles_config = 1;
+
       char *role = settings + 8;
       char *end;
       while(role[0] != ' '){
@@ -395,6 +399,16 @@ void set_guild_config(discord_t *discord, char *msg, int msg_len) {
       break;
     }
     settings++;
+  }
+
+  CLEANUP_GUILD_CONFIG:
+
+  if(!has_djroles_config){
+    fprintf(stdout, "No DJ roles found, allowing everyone permission\n");
+
+    snprintf(key, sizeof(key), "%s%s%s", DISCORD_GATEWAY_DJ_ROLES, gid_cjs->valuestring, DISCORD_GATEWAY_ROLE_EVERYONE);
+    unsigned char allones = 0xFF;
+    sm_put(discord->data_dictionary, key, (char *)&allones, sizeof(allones));
   }
 
   cJSON_Delete(cjs);
@@ -716,15 +730,21 @@ void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
 }
 
 int check_user_dj_role(discord_t *dis, cJSON *cjs, char *guildid){
+  char key[200];
+  snprintf(key, sizeof(key), "%s%s%s", DISCORD_GATEWAY_DJ_ROLES, guildid, DISCORD_GATEWAY_ROLE_EVERYONE);
+  int found = sm_get(dis->data_dictionary, key, NULL, 0);
+  if(found){
+    return 1;
+  }
+
   cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
   cJSON *member_cjs = cJSON_GetObjectItem(d_cjs, "member");
   cJSON *roles = cJSON_GetObjectItem(member_cjs, "roles");
 
-  char key[200];
   cJSON *role = roles->child;
   while(role){
     snprintf(key, sizeof(key), "%s%s%s", DISCORD_GATEWAY_DJ_ROLES, guildid, role->valuestring);
-    int found = sm_get(dis->data_dictionary, key, NULL, 0);
+    found = sm_get(dis->data_dictionary, key, NULL, 0);
     if(found){
       return 1;
     }
@@ -763,12 +783,15 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
   // if someone sends a message
   if (strcasestr(msg, "\"MESSAGE_CREATE\"")) {
+    char *guildid_cp = 0;
+    char *userid_cp = 0;
+    char *textchannelid_nw = 0;
+
     char *content = strcasestr(msg, "content") + 10;
 
     // get guild_id
     char *guildid = strcasestr(msg, "guild_id\"");
     guildid += 11;
-    char *guildid_cp = 0;
     char *end = strchr(guildid, '"');
     *end = 0;
     guildid_cp = malloc(strlen(guildid) + 1);
@@ -790,12 +813,11 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         !strncasecmp(content + 1, "prefix", 6)) {
       botprefix[0] = *(content + 8);
       sm_put(dis->data_dictionary, key, &botprefix[0], sizeof(botprefix[0]));
-      return;
+      goto CLEANUP_CREATE_MESSAGE;
     }
 
     // get the user id of the person sending message
     char *userid = strcasestr(msg, DISCORD_GATEWAY_VOICE_USERNAME);
-    char *userid_cp = 0;
     if (userid) {
       userid = strcasestr(userid, DISCORD_GATEWAY_VOICE_USER_ID);
       userid += 6;
@@ -809,7 +831,6 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     }
 
     // get channel id of the text channel where the message was sent
-    char *textchannelid_nw = 0;
     char *textchannelid = strcasestr(msg, DISCORD_GATEWAY_MSG_CHANNEL_ID);
     if (textchannelid) {
       textchannelid += 14;
@@ -876,6 +897,8 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
                      has_user, is_dj);
       }
     }
+
+    CLEANUP_CREATE_MESSAGE:
 
     if (userid_cp) {
       free(userid_cp);
