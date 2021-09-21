@@ -950,7 +950,7 @@ void insert_queue_ytb_partial(media_player_t *media, cJSON *video_json) {
   snprintf(ytobj.link, sizeof(ytobj.link), "https://www.youtube.com/watch?v=%s", id);
   snprintf(ytobj.title, sizeof(ytobj.title), title);
   snprintf(ytobj.duration, sizeof(ytobj.duration), duration);
-      ytobj.length_in_seconds = length;
+  ytobj.length_in_seconds = length;
 
   sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
 }

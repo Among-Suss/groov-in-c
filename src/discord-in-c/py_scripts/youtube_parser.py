@@ -3,33 +3,27 @@ import json
 import sys
 
 
-def get_description(url):
+def get_description(text):
     """Retrieves the video description
 
     Args:
-        url (str): Video url
+        text (str): Raw HTML
 
     Returns:
         str: description
     """
-    text = requests.get(url).text
 
     return get_between(text, '"description":{"simpleText":"', '"},').replace("\\n", "\n")
 
-def get_playlist_data(url, do_save=False):
+def get_playlist_data(text, do_save=False):
     """Retrieves the video description
 
     Args:
-        url (str): Video url
+        text (str): Raw HTML
 
     Returns:
         dict
     """
-    text = requests.get(url).text
-
-    if do_save:
-        with open('test.html', 'w') as fp:
-            fp.write(text)
 
     json_string = get_between(text, 'ytInitialData = ', ';</script>')
     parsed_json: dict = json.loads(json_string)
@@ -87,12 +81,17 @@ if __name__ == "__main__":
     if len(sys.argv) > 3:
         debug = sys.argv[3] == '-debug'
 
+    text = requests.get(url).text
+
     if debug:
         print("====DEBUG MODE====")
+        with open('test.html', 'w') as fp:
+            fp.write(text)
 
-    if command == 'description':
-        print(get_description(url))
-    elif command == 'playlist':
-        print(json.dumps(get_playlist_data(url, debug)))
-    else:
+    try:
+        if command == 'description':
+            print(get_description(text))
+        elif command == 'playlist':
+            print(json.dumps(get_playlist_data(text, debug)))
+    except:
         sys.exit(1)
