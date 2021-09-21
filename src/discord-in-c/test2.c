@@ -283,9 +283,15 @@ void *threaded_play_cmd(void *ptr) {
   }
 
   if(!insert_queue_ret_error){
-    char message[300];
-    snprintf(message, sizeof(message), "Queued song: %s", title);
-    simple_send_msg(pobj->dis, message ,pobj->textchannelid);
+    int queue_len = pobj->vgt->media->song_queue.size;
+    int skipper_val;
+    sem_getvalue(&(pobj->vgt->media->skipper), &skipper_val);
+
+    if(!(queue_len == 0 || (queue_len == 1 && skipper_val > 0))){
+      char message[300];
+      snprintf(message, sizeof(message), "Queued song: %s", title);
+      simple_send_msg(pobj->dis, message ,pobj->textchannelid);
+    }
   }else if(!queued_playlist){
     simple_send_msg(pobj->dis, "Unable to queue song. Please double check the link or whether video is age restricted." ,pobj->textchannelid);
   }
@@ -534,6 +540,8 @@ void skip_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   }
 
   sem_post(&(vgt->media->skipper));
+
+  simple_send_msg(dis, "Skipped song!", textchannelid);
 }
 
 void desc_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
