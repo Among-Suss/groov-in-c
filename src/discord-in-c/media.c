@@ -923,6 +923,8 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
 }
 
 int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_title, int return_title_len){
+  media->playing = 1;
+
   sem_wait(&(media->insert_song_mutex)); //necessary to fix -leave cmd
 
   youtube_page_object_t ytobj;
@@ -943,6 +945,8 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_
  *  Insert data from a json object into the song queue
  */
 void insert_queue_ytb_partial(media_player_t *media, cJSON *video_json) {
+  media->playing = 1;
+
   youtube_page_object_t ytobj = { 0 };
 
   char *id = cJSON_GetStringValue(cJSON_GetObjectItem(video_json, "id"));
