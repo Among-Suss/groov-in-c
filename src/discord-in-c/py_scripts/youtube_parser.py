@@ -59,7 +59,7 @@ def get_playlist_data(text, do_save=False):
 
         dict_list.append({
             "id": video['videoId'],
-            "title": video["title"]["runs"][0] if playlist_mode else video["title"]["simpleText"],
+            "title": video["title"]["runs"][0]['text'] if playlist_mode else video["title"]["simpleText"],
             "duration": duration,
             "length": length
         }) 

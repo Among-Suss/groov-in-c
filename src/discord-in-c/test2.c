@@ -247,19 +247,29 @@ void *threaded_play_cmd(void *ptr) {
       if ((substr = strstr(pobj->content, "&index=")) != NULL) {
         char buf[20];
         int i = 0;
-        while (substr[i + 7] != '&')
+        while ((substr[i + 7] != '&') && (substr[i + 7] != 0))
         {
           buf[i] = substr[i + 7];
           i++;
         }
         buf[i] = '\0';
 
+        fprintf(stdout, "Queue index parameter: %s\n", buf);
+
         start_index = atoi(buf) - 1;
       }
+      //if it's a playlist link without video, start at index -1
+      if(strstr(pobj->content, "playlist") != NULL){
+        start_index = -1;
+      }
+
+      fprintf(stdout, "Starting queue at index: %d\n", start_index);
 
       FILE *fp;
-      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist ";
+      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist '";
       strcat(cmd, pobj->content);
+      strcat(cmd, "'");
+
       fp = popen(cmd, "r");
       if (fp != NULL) {
         char *buf, ch;
