@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 
 #define MIN(x,y) x < y ? x : y
 
@@ -87,7 +88,7 @@ void *sbuf_remove_end_value(struct sbuf_t *sp, void *retval, int len,
  *  
  *
  */
-void *sbuf_peek_end_value(struct sbuf_t *sp, void *retval, int len,
+void *sbuf_peek_end_value_copy(struct sbuf_t *sp, void *retval, int len,
                            int lockitem);
 
 /*
@@ -97,7 +98,13 @@ void *sbuf_peek_end_value(struct sbuf_t *sp, void *retval, int len,
 void sbuf_removal_lock(struct sbuf_t *sp);
 void sbuf_removal_unlock(struct sbuf_t *sp);
 
-void sbuf_insert_value_position(struct sbuf_t *sp, void *value, int len, int position);
+void sbuf_insert_value_position_from_front(struct sbuf_t *sp, void *value, int len, int position);
+void sbuf_insert_value_position_from_back(struct sbuf_t *sp, void *value, int len, int position);
 void *sbuf_remove_front_value(struct sbuf_t *sp, void *retval, int len,
                            int lockitem);
 void sbuf_iterate(struct sbuf_t *sp, sbuf_iterate_callback_f callback, void *state, int start_pos, int end_pos);
+
+void *sbuf_peek_end_value_direct(struct sbuf_t *sp, int *returned_len, int lockitem);
+void sbuf_stop_peeking(struct sbuf_t *sp);
+void sbuf_shuffle_random(struct sbuf_t *sp);
+void sbuf_clear(struct sbuf_t *sp);
