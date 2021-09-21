@@ -81,8 +81,12 @@ Play music:                 -p [youtube link or text to search youtube]
 Skip music:                 -skip
 Show queue:                 -queue [page number]
 Show current song:          -np
-Show youtube description    -desc
-Make the bot leave          -leave
+Show youtube description:   -desc
+Make the bot leave:         -leave
+Clear queue:                -clear
+Shuffle queue:              -shuffle
+Seek music:                 -seek [hour]:[mins]:[secs]
+    Example: -seek 3:20 (goes to 3 minutes 20 seconds in the song)
 ```
 
 The -p command takes either a youtube link or search query
