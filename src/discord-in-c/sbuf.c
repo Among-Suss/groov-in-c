@@ -24,10 +24,6 @@ void sbuf_init(struct sbuf_t *sp) {
   if (sem_init(&(sp->mutex), 0, 1) < 0) {
     printf("semaphor ERror\n");
   }
-
-  if (sem_init(&(sp->removal_lock), 0, 1) < 0) {
-    printf("semaphor ERror\n");
-  }
 }
 
 void sbuf_deinit(struct sbuf_t *sp) {
@@ -42,10 +38,6 @@ void sbuf_deinit(struct sbuf_t *sp) {
 }
 
 int sbuf_remove_value(struct sbuf_t *sp, void *value, int len) {
-  if (sem_wait(&(sp->removal_lock)) < 0) {
-    printf("semaphor ERror\n");
-  }
-
   if (sem_wait(&(sp->mutex)) < 0) {
     printf("semaphor ERror\n");
   }
@@ -78,9 +70,6 @@ int sbuf_remove_value(struct sbuf_t *sp, void *value, int len) {
     printf("semaphor ERror\n");
   }
 
-  if (sem_post(&(sp->removal_lock)) < 0) {
-    printf("semaphor ERror\n");
-  }
 
   return found;
 }
@@ -111,7 +100,7 @@ void sbuf_insert_front_value(struct sbuf_t *sp, void *value, int len) {
   }
 }
 
-void sbuf_insert_value_position(struct sbuf_t *sp, void *value, int len, int position) {
+void sbuf_insert_value_position_from_front(struct sbuf_t *sp, void *value, int len, int position) {
   struct linked_node_t *newnode = malloc(sizeof(struct linked_node_t));
   newnode->value = malloc(sizeof(char) * len);
   newnode->len = len;
@@ -125,12 +114,44 @@ void sbuf_insert_value_position(struct sbuf_t *sp, void *value, int len, int pos
   struct linked_node_t *my_front = sp->front;
   while(position > 0){
     my_front = my_front->next;
+    position--;
   }
 
   newnode->next = my_front->next;
   newnode->prev = my_front;
   my_front->next = newnode;
   newnode->next->prev = newnode;
+
+  sp->size++;
+
+  if (sem_post(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+  if (sem_post(&(sp->items)) < 0) {
+    printf("semaphor ERror\n");
+  }
+}
+
+void sbuf_insert_value_position_from_back(struct sbuf_t *sp, void *value, int len, int position) {
+  struct linked_node_t *newnode = malloc(sizeof(struct linked_node_t));
+  newnode->value = malloc(sizeof(char) * len);
+  newnode->len = len;
+  memcpy(newnode->value, value, len);
+  
+  if (sem_wait(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+
+  struct linked_node_t *my_back = sp->back;
+  while(position > 0){
+    my_back = my_back->prev;
+    position--;
+  }
+
+  newnode->next = my_back;
+  newnode->prev = my_back->prev;
+  my_back->prev = newnode;
+  newnode->prev->next = newnode;
 
   sp->size++;
 
@@ -159,10 +180,6 @@ void *sbuf_remove_end_value(struct sbuf_t *sp, void *retval, int len,
     printf("semaphor ERror\n");
   }
 
-  if (sem_wait(&(sp->removal_lock)) < 0) {
-    printf("semaphor ERror\n");
-  }
-
   
   struct linked_node_t *retnode = 0;
   if (sp->size > 0) {
@@ -184,9 +201,6 @@ void *sbuf_remove_end_value(struct sbuf_t *sp, void *retval, int len,
     retval = 0;
   }
 
-  if (sem_post(&(sp->removal_lock)) < 0) {
-    printf("semaphor ERror\n");
-  }
 
   if (sem_post(&(sp->mutex)) < 0) {
     printf("semaphor ERror\n");
@@ -212,10 +226,6 @@ void *sbuf_remove_front_value(struct sbuf_t *sp, void *retval, int len,
     printf("semaphor ERror\n");
   }
 
-  if (sem_wait(&(sp->removal_lock)) < 0) {
-    printf("semaphor ERror\n");
-  }
-
   
   struct linked_node_t *retnode = 0;
   if (sp->size > 0) {
@@ -237,9 +247,6 @@ void *sbuf_remove_front_value(struct sbuf_t *sp, void *retval, int len,
     retval = 0;
   }
 
-  if (sem_post(&(sp->removal_lock)) < 0) {
-    printf("semaphor ERror\n");
-  }
 
   if (sem_post(&(sp->mutex)) < 0) {
     printf("semaphor ERror\n");
@@ -248,7 +255,7 @@ void *sbuf_remove_front_value(struct sbuf_t *sp, void *retval, int len,
   return retval;
 }
 
-void *sbuf_peek_end_value(struct sbuf_t *sp, void *retval, int len,
+void *sbuf_peek_end_value_copy(struct sbuf_t *sp, void *retval, int len,
                            int lockitem)
 {
   int return_item = 1;
@@ -295,18 +302,6 @@ void *sbuf_peek_end_value(struct sbuf_t *sp, void *retval, int len,
   return retval;
 }
 
-void sbuf_removal_lock(struct sbuf_t *sp){
-  if (sem_wait(&(sp->removal_lock)) < 0) {
-    printf("semaphor ERror\n");
-  }
-}
-
-void sbuf_removal_unlock(struct sbuf_t *sp){
-  if (sem_post(&(sp->removal_lock)) < 0) {
-    printf("semaphor ERror\n");
-  }
-}
-
 void sbuf_iterate(struct sbuf_t *sp, sbuf_iterate_callback_f callback, void *state, int start_pos, int end_pos) {
   if (sem_wait(&(sp->mutex)) < 0) {
     printf("semaphor ERror\n");
@@ -322,6 +317,129 @@ void sbuf_iterate(struct sbuf_t *sp, sbuf_iterate_callback_f callback, void *sta
     node = node->prev;
   }
 
+
+  if (sem_post(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+}
+
+
+
+
+
+
+void *sbuf_peek_end_value_direct(struct sbuf_t *sp, int *returned_len, int lockitem)
+{
+  int return_item = 1;
+  if (lockitem) {
+    if (sem_wait(&(sp->items)) < 0) {
+      printf("semaphor ERror\n");
+    }
+  }else{
+    if (sem_trywait(&(sp->items)) < 0) {
+      if(errno == EAGAIN){
+        return_item = 0;
+      }
+      printf("semaphor ERror\n");
+    }
+  }
+
+  if (sem_wait(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+
+
+  struct linked_node_t *retnode = 0;
+  if (sp->size > 0) {
+    retnode = sp->back->prev;
+  }
+
+
+  if(return_item){
+    if (sem_post(&(sp->items)) < 0) {
+      printf("semaphor ERror\n");
+    }
+  }
+
+  if(retnode && returned_len){
+    *returned_len = retnode->len;
+  }
+  return retnode ? retnode->value : NULL;
+}
+
+void sbuf_stop_peeking(struct sbuf_t *sp){
+  if (sem_post(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+}
+
+
+void sbuf_shuffle_random(struct sbuf_t *sp){
+  if (sem_wait(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+
+  int list_size = sp->size;
+  if(list_size < 3){
+    goto CLEANUP_SHUFFLE_SBUF;
+  }
+
+  #define MOVE_MODULO 32
+  #define NUM_PASSES 3
+  linked_node_t *i_node = sp->front->next;
+  linked_node_t *j_node = sp->front->next;
+  int delta = 0;
+  srand(time(NULL));
+  for (int i = 0; i < list_size * NUM_PASSES; i++){
+    delta = (rand() % MOVE_MODULO) + 5;
+
+    for (int j = 0; j < delta; j++){
+      j_node = j_node->next;
+      if(j_node == sp->back->prev){
+        j_node = sp->front->next;
+      }
+    }
+
+    //swap
+    void *tmp_val = i_node->value;
+    int tmp_len = i_node->len;
+    i_node->value = j_node->value;
+    i_node->len = j_node->len;
+    j_node->value = tmp_val;
+    j_node->len = tmp_len;
+
+    i_node = i_node->next;
+    if(i_node == sp->back->prev){
+      i_node = sp->front->next;
+    }
+  }
+
+
+  CLEANUP_SHUFFLE_SBUF:
+  if (sem_post(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+}
+
+void sbuf_clear(struct sbuf_t *sp) {
+  if (sem_wait(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+
+  struct linked_node_t *lp = sp->front->next;
+  struct linked_node_t *lp_next = 0;
+  while (lp != sp->back) {
+    lp_next = lp->next;
+    free(lp->value);
+    free(lp);
+    lp = lp_next;
+  }
+
+  sp->front->next = sp->back;
+  sp->back->prev = sp->front;
+
+  sp->size = 0;
+  sem_init(&(sp->items), 0, 0);
 
   if (sem_post(&(sp->mutex)) < 0) {
     printf("semaphor ERror\n");

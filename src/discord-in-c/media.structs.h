@@ -12,12 +12,14 @@ typedef struct youtube_page_object_t{
   struct timespec audio_url_create_date;
   char duration[100];
   int length_in_seconds;
+  int start_time_offset;
 } youtube_page_object_t;
 
 typedef struct media_player_t{
   sbuf_t song_queue;
   sem_t skipper;
   volatile int playing;
+  volatile int skippable;
 
   volatile int udp_fd;
   struct sockaddr *addr;

@@ -41,7 +41,6 @@ typedef struct voice_gateway_t {
   sem_t stream_ready;
   sem_t voice_key_ready;
   StrMap *data_dictionary;
-  unsigned char voice_encryption_key[32];
   int voice_udp_sockfd;
   
   int reconnection_count;

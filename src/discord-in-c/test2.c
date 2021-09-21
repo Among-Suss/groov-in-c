@@ -115,17 +115,13 @@ void escape_http_doublequote(char *input, long unsigned in_size, char *output,
 void fix_string_ending(char *str) {
   int length = strlen(str);
   unsigned char *working = ((unsigned char *)str) + length - 1;
-
   while (working != ((unsigned char *)str)) {
     if (((*working) & 0xC0) != 0x80) {
       break;
     }
-
     working--;
   }
-
-  if (working != ((unsigned char *)str) + length - 1)
-    *working = 0;
+  *working = 0;
 }
 
 /*  Voice reconnect callback
@@ -302,9 +298,15 @@ void *threaded_play_cmd(void *ptr) {
   }
 
   if(!insert_queue_ret_error){
-    char message[300];
-    snprintf(message, sizeof(message), "Queued song: %s", title);
-    simple_send_msg(pobj->dis, message ,pobj->textchannelid);
+    int queue_len = pobj->vgt->media->song_queue.size;
+    int skipper_val;
+    sem_getvalue(&(pobj->vgt->media->skipper), &skipper_val);
+
+    if(!(queue_len == 0 || (queue_len == 1 && skipper_val > 0))){
+      char message[300];
+      snprintf(message, sizeof(message), "Queued song: %s", title);
+      simple_send_msg(pobj->dis, message ,pobj->textchannelid);
+    }
   }else if(!queued_playlist){
     simple_send_msg(pobj->dis, "Unable to queue song. Please double check the link or whether video is age restricted." ,pobj->textchannelid);
   }
@@ -340,7 +342,6 @@ void get_queue_callback(void *value, int len, void *state, int pos, int start,
   escape_http_newline(ytobj->title, sizeof(ytobj->title), text3,
                       sizeof(ytobj->title));
   escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
-  fix_string_ending(text4);
 
   memcpy(array[pos - start], text4, len);
 }
@@ -536,7 +537,7 @@ void skip_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
     return;
   }
 
-  if (!(vgt && vgt->media && vgt->media->playing && !wrong_vc)) {
+  if (!(vgt && vgt->media && vgt->media->skippable && !wrong_vc)) {
     if (wrong_vc) {
       simple_send_msg(
           dis, "Please make sure I am joined or in the correct voice channel.",
@@ -553,6 +554,8 @@ void skip_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   }
 
   sem_post(&(vgt->media->skipper));
+
+  simple_send_msg(dis, "Skipped song!", textchannelid);
 }
 
 void desc_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
@@ -575,11 +578,11 @@ void desc_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
     return;
   }
 
-  send_typing_indicator(dis, textchannelid);
+  
   char message[9500];
   if (vgt->media && vgt->media->playing) {
     youtube_page_object_t ytpobj;
-    sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
+    sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
                         0);
 
     //check if youtube object is partially filled
@@ -648,7 +651,7 @@ void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
   char message[9500];
   if (vgt->media && vgt->media->playing) {
     youtube_page_object_t ytpobj;
-    sbuf_peek_end_value(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
+    sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
                         0);
 
     //escape out the text for json sending
@@ -662,7 +665,7 @@ void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
     //get the current time to create progress bar
     struct timespec now;
     clock_gettime(CLOCK_REALTIME, &now);
-    long lapse = now.tv_sec - vgt->media->song_start_time.tv_sec;
+    long lapse = now.tv_sec - vgt->media->song_start_time.tv_sec + ytpobj.start_time_offset;
 
     //create bar
     #define barsize 40
@@ -681,7 +684,7 @@ void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
     if (ytpobj.length_in_seconds / 3600 > 0) {
       snprintf(hour, sizeof(hour), "%02ld:", lapse / 3600);
     }
-    snprintf(time_str, sizeof(time_str), "%s%02ld:%02ld [%s] %s", hour,
+    snprintf(time_str, sizeof(time_str), "```%s%02ld:%02ld [%s] %s```", hour,
              (lapse / 60) % 60, lapse % 60, bar, ytpobj.duration);
 
     //print the final message
@@ -745,21 +748,35 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
     char inner_message[5000] = { 0 };
     char temp_message[300];
     int queue_end = 0;
+
+    strcat(inner_message, "```");
     for(int x = 0; x < QUEUELENGTH; x++){
       int written_index = queue_page*QUEUELENGTH + x + 1;
       if(written_index == 1){
-        snprintf(temp_message, sizeof(temp_message), "Now Playing: %s\\n\\n", title_arr[x]);
+        snprintf(temp_message, sizeof(temp_message), "Now Playing: %.40s", title_arr[x]);
+        if(strlen(title_arr[x]) > 40){
+          fix_string_ending(temp_message);
+          strcat(temp_message, "...");
+        }
+        strcat(temp_message, "\\n\\n");
         strcat(inner_message, temp_message);
       }else if(title_arr[x]){
-        snprintf(temp_message, sizeof(temp_message), "%d. %s\\n", written_index, title_arr[x]);
+        snprintf(temp_message, sizeof(temp_message), "%d. %.40s", written_index, title_arr[x]);
+        if(strlen(title_arr[x]) > 40){
+          fix_string_ending(temp_message);
+          strcat(temp_message, "...");
+        }
+        strcat(temp_message, "\\n");
         strcat(inner_message, temp_message);
       }else{
         queue_end = 1;
       }
     }
     if(queue_end){
-      snprintf(temp_message, sizeof(temp_message), "\\n----End of Queue----\\n");
+      snprintf(temp_message, sizeof(temp_message), "\\n----End of Queue----\\n```");
       strcat(inner_message, temp_message);
+    }else{
+      strcat(inner_message, "```");
     }
     snprintf(temp_message, sizeof(temp_message), "\\n Queue Page %ld", queue_page + 1);
     strcat(inner_message, temp_message);
@@ -768,7 +785,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
     for (int i = 0; i < QUEUELENGTH; i++) {
       free(title_arr[i]);
     }
-
+    
     //form final message
     snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,
              "Song Queue:", "Up next on the playlist...", inner_message,
@@ -826,6 +843,116 @@ void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   pthread_create(&tid, NULL, threaded_play_cmd, pobj);
 }
 
+void seek_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
+                  char *guildid, char *textchannelid, char *content, int wrong_vc,
+                  int has_user, int is_dj) {
+  if (!(has_user && (uobjp->vc_id[0] != 0) &&
+        !strcmp(uobjp->guild_id, guildid))) {
+    simple_send_msg(dis, "You must be in a voice channel!", textchannelid);
+    return;
+  }
+
+  if (!(vgt && vgt->media && vgt->media->playing && !wrong_vc)) {
+    if (wrong_vc) {
+      simple_send_msg(
+          dis, "Please make sure I am joined or in the correct voice channel.",
+          textchannelid);
+    } else {
+      simple_send_msg(dis, "No song playing!", textchannelid);
+    }
+    return;
+  }
+
+  if(!is_dj){
+    simple_send_msg(dis, "You do not have permission to use this command!", textchannelid);
+    return;
+  }
+
+  int length_in_seconds;
+  char *duration = content + 5;
+  char *time_sep = strchr(duration, ':');
+  if(!time_sep){
+    length_in_seconds = strtol(duration, NULL, 10);
+  }else{
+    *time_sep = 0;
+    time_sep++;
+    char *time_sep2 = strchr(time_sep, ':');
+    if(!time_sep2){
+      length_in_seconds = 60 * strtol(duration, NULL, 10) + strtol(time_sep, NULL, 10);
+    }else{
+      *time_sep2 = 0;
+      time_sep2++;
+      length_in_seconds = 60 * 60 * strtol(duration, NULL, 10) + 60 * strtol(time_sep, NULL, 10) + strtol(time_sep2, NULL, 10);
+    }
+  }
+
+  seek_media_player(vgt->media, length_in_seconds);
+
+  simple_send_msg(dis, "Seeked song!", textchannelid);
+}
+
+void shuffle_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
+                  char *guildid, char *textchannelid, int wrong_vc,
+                  int has_user, int is_dj) {
+  if (!(has_user && (uobjp->vc_id[0] != 0) &&
+        !strcmp(uobjp->guild_id, guildid))) {
+    simple_send_msg(dis, "You must be in a voice channel!", textchannelid);
+    return;
+  }
+
+  if (!(vgt && vgt->media && vgt->media->skippable && !wrong_vc)) {
+    if (wrong_vc) {
+      simple_send_msg(
+          dis, "Please make sure I am joined or in the correct voice channel.",
+          textchannelid);
+    } else {
+      simple_send_msg(dis, "No song playing!", textchannelid);
+    }
+    return;
+  }
+
+  if(!is_dj){
+    simple_send_msg(dis, "You do not have permission to use this command!", textchannelid);
+    return;
+  }
+
+  send_typing_indicator(dis, textchannelid);
+  shuffle_media_player(vgt->media);
+  sleep(2); //in order to make sure typing indicator reaches first
+  simple_send_msg(dis, "Shuffled Playlist!", textchannelid);
+}
+
+void clear_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
+                  char *guildid, char *textchannelid, int wrong_vc,
+                  int has_user, int is_dj) {
+  if (!(has_user && (uobjp->vc_id[0] != 0) &&
+        !strcmp(uobjp->guild_id, guildid))) {
+    simple_send_msg(dis, "You must be in a voice channel!", textchannelid);
+    return;
+  }
+
+  if (!(vgt && vgt->media && vgt->media->skippable && !wrong_vc)) {
+    if (wrong_vc) {
+      simple_send_msg(
+          dis, "Please make sure I am joined or in the correct voice channel.",
+          textchannelid);
+    } else {
+      simple_send_msg(dis, "No song playing!", textchannelid);
+    }
+    return;
+  }
+
+  if(!is_dj){
+    simple_send_msg(dis, "You do not have permission to use this command!", textchannelid);
+    return;
+  }
+
+  send_typing_indicator(dis, textchannelid);
+  clear_media_player(vgt->media);
+  sleep(2); //in order to make sure typing indicator reaches first
+  simple_send_msg(dis, "Cleared Playlist!", textchannelid);
+}
+
 int check_user_dj_role(discord_t *dis, cJSON *cjs, char *guildid){
   char key[200];
   snprintf(key, sizeof(key), "%s%s%s", DISCORD_GATEWAY_DJ_ROLES, guildid, DISCORD_GATEWAY_ROLE_EVERYONE);
@@ -880,23 +1007,13 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     cJSON *cjs = cJSON_ParseWithLength(msg, msg_len);
     cJSON *d_cjs = cJSON_GetObjectItem(cjs, "d");
 
-    char *guildid_cp = 0;
-    char *userid_cp = 0;
-    char *textchannelid_nw = 0;
-
     //get message content
     cJSON *content_cjs = cJSON_GetObjectItem(d_cjs, "content");
     char *content = content_cjs->valuestring;
 
     // get guild_id
-    char *guildid = strcasestr(msg, "guild_id\"");
-    guildid += 11;
-    char *end = strchr(guildid, '"');
-    *end = 0;
-    guildid_cp = malloc(strlen(guildid) + 1);
-    strcpy(guildid_cp, guildid);
-    *end = '"';
-    guildid = guildid_cp;
+    cJSON *guild_cjs = cJSON_GetObjectItem(d_cjs, "guild_id");
+    char *guildid = guild_cjs->valuestring;
 
     // get the bot prefix for this guild
     char botprefix[10] = {0};
@@ -915,31 +1032,13 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
     }
 
     // get the user id of the person sending message
-    char *userid = strcasestr(msg, DISCORD_GATEWAY_VOICE_USERNAME);
-    if (userid) {
-      userid = strcasestr(userid, DISCORD_GATEWAY_VOICE_USER_ID);
-      userid += 6;
-      end = strchr(userid, '"');
-      *end = 0;
-      userid_cp = malloc(strlen(userid) + 1);
-      strcpy(userid_cp, userid);
-      *end = '"';
-      userid = userid_cp;
-    }
+    cJSON *author_cjs = cJSON_GetObjectItem(d_cjs, "author");
+    cJSON *uid_cjs = cJSON_GetObjectItem(author_cjs, "id");
+    char *userid = uid_cjs->valuestring;
 
     // get channel id of the text channel where the message was sent
-    char *textchannelid = strcasestr(msg, DISCORD_GATEWAY_MSG_CHANNEL_ID);
-    if (textchannelid) {
-      textchannelid += 14;
-      end = strchr(textchannelid, '"');
-      *end = 0;
-
-      textchannelid_nw = malloc(strlen(textchannelid) + 1);
-      strcpy(textchannelid_nw, textchannelid);
-
-      *end = '"';
-      textchannelid = textchannelid_nw;
-    }
+    cJSON *textchannelid_cjs = cJSON_GetObjectItem(d_cjs, "channel_id");
+    char *textchannelid = textchannelid_cjs->valuestring;
 
     //check if user is a DJ
     int is_dj = check_user_dj_role(dis, cjs, guildid);    
@@ -984,6 +1083,15 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       } else if (!strncasecmp(content + 1, "p ", 2)) {
         play_command(vgt, dis, &uobj, guildid, textchannelid, content, wrong_vc,
                      has_user, is_dj);
+      } else if (!strncasecmp(content + 1, "seek ", 5)) {
+        seek_command(vgt, dis, &uobj, guildid, textchannelid, content, wrong_vc,
+                     has_user, is_dj);
+      } else if (!strncasecmp(content + 1, "shuffle", 7)) {
+        shuffle_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
+                     has_user, is_dj);
+      } else if (!strncasecmp(content + 1, "clear", 5)) {
+        clear_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
+                     has_user, is_dj);
       }
     }
 
@@ -991,15 +1099,6 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
     cJSON_Delete(cjs);
 
-    if (userid_cp) {
-      free(userid_cp);
-    }
-    if (guildid_cp) {
-      free(guildid_cp);
-    }
-    if (textchannelid_nw) {
-      free(textchannelid_nw);
-    }
   }
 }
 
