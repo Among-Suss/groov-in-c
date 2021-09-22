@@ -902,7 +902,10 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   return 0;
 }
 
-int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_title, int return_title_len){
+//-1 index signifies insert at front
+//positive index will start from the back.
+//index should not be zero
+int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_title, int return_title_len, int index){
   media->skippable = 1;
 
   sem_wait(&(media->insert_song_mutex)); //necessary to fix -leave cmd
@@ -912,8 +915,15 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_
   strncpy(ytobj.query, ydl_query, sizeof(ytobj.query) - 2);
   int ret = get_youtube_vid_info(ydl_query, &ytobj);
 
-  if(!ret)
-    sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
+  if(!ret){
+    if(index == -1){
+      sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
+    }else if(index > 0){
+      int queue_size = media->song_queue.size;
+      int effective_index = index > queue_size ? queue_size : index;
+      sbuf_insert_value_position_from_back((&(media->song_queue)), &ytobj, sizeof(ytobj), effective_index);
+    }
+  }
   
   sem_post(&(media->insert_song_mutex));
 

@@ -5,9 +5,12 @@
 #include "media.h"
 #include "media.structs.h"
 
+#include <math.h>
+
 #define DEFAULT_BOT_NAME "groov-in-c"
 char *botname;
 char *bottoken;
+char *default_botprefix;
 
 sem_t play_cmd_mutex;
 
@@ -169,6 +172,7 @@ struct play_cmd_obj {
   user_vc_obj uobj;
   char *content;
   char *textchannelid;
+  int insert_index;
 };
 void *threaded_play_cmd(void *ptr) {
   pthread_detach(pthread_self());
@@ -227,7 +231,7 @@ void *threaded_play_cmd(void *ptr) {
   if (!strncasecmp(pobj->content, "https://", 8)) {
     fprintf(stdout, "Query provided as URL.\n");
     if(!strncasecmp(pobj->content, "https://youtu.be/", 17) || !strncasecmp(pobj->content, "https://www.youtube.com/watch?v=", 32)){
-      insert_queue_ret_error = insert_queue_ydl_query(pobj->vgt->media, pobj->content, title, sizeof(title));
+      insert_queue_ret_error = insert_queue_ydl_query(pobj->vgt->media, pobj->content, title, sizeof(title), pobj->insert_index);
       if(insert_queue_ret_error){
         fprintf(stdout, "ERROR: youtube-dl unable to queue song.\n");
       }
@@ -301,7 +305,7 @@ void *threaded_play_cmd(void *ptr) {
     fprintf(stdout, "Query provided as a search token.\n");
     char youtube_dl_search_txt[2048];
     snprintf(youtube_dl_search_txt, 2048, "ytsearch1:%s", pobj->content);
-    insert_queue_ret_error = insert_queue_ydl_query(pobj->vgt->media, youtube_dl_search_txt, title, sizeof(title));
+    insert_queue_ret_error = insert_queue_ydl_query(pobj->vgt->media, youtube_dl_search_txt, title, sizeof(title), pobj->insert_index);
     if(insert_queue_ret_error){
       fprintf(stdout, "ERROR: youtube-dl unable to queue song.\n");
     }
@@ -760,6 +764,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
     char inner_message[5000] = { 0 };
     char temp_message[300];
     int queue_end = 0;
+    int num_of_songs = vgt->media->song_queue.size - 1;
 
     strcat(inner_message, "```");
     for(int x = 0; x < QUEUELENGTH; x++){
@@ -790,7 +795,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
     }else{
       strcat(inner_message, "```");
     }
-    snprintf(temp_message, sizeof(temp_message), "\\n Queue Page %ld", queue_page + 1);
+    snprintf(temp_message, sizeof(temp_message), "\\n Queue Page %ld of %ld. \\n Total %d songs in queue.", queue_page + 1, (long int)ceil(((double)num_of_songs)/((double)QUEUELENGTH)), num_of_songs);
     strcat(inner_message, temp_message);
 
     //cleanup
@@ -822,7 +827,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
 
 void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                   char *guildid, char *textchannelid, char *content,
-                  int wrong_vc, int has_user, int is_dj) {
+                  int wrong_vc, int has_user, int is_dj, int insert_index) {
   if (!(has_user && (uobjp->vc_id[0] != 0) &&
         !strcmp(uobjp->guild_id, guildid))) {
     simple_send_msg(dis, "You must be in a voice channel!", textchannelid);
@@ -845,6 +850,7 @@ void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   pobj->dis = dis;
   pobj->vgt = vgt;
   pobj->uobj = *uobjp;
+  pobj->insert_index = insert_index;
 
   pobj->content = malloc(strlen(content) + 1);
   strcpy(pobj->content, content);
@@ -1139,7 +1145,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
     // get the bot prefix for this guild
     char botprefix[10] = {0};
-    botprefix[0] = BOT_PREFIX[0];
+    botprefix[0] = default_botprefix[0];
     char key[200];
     snprintf(key, sizeof(key), "%s%s", DISCORD_GATEWAY_GUILD_PREFIX_SETTING,
              guildid);
@@ -1204,7 +1210,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
                            has_user);
       } else if (!strncasecmp(content + 1, "p ", 2)) {
         play_command(vgt, dis, &uobj, guildid, textchannelid, content, wrong_vc,
-                     has_user, is_dj);
+                     has_user, is_dj, -1);
       } else if (!strncasecmp(content + 1, "seek ", 5)) {
         seek_command(vgt, dis, &uobj, guildid, textchannelid, content, wrong_vc,
                      has_user, is_dj);
@@ -1220,9 +1226,15 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       } else if (!strncasecmp(content + 1, "pause", 5)) {
         pause_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
                      has_user, is_dj);
+      } else if (!strncasecmp(content + 1, "play ", 5)) {
+        play_command(vgt, dis, &uobj, guildid, textchannelid, content + 3, wrong_vc,
+                     has_user, is_dj, -1);
       } else if (!strncasecmp(content + 1, "play", 4)) {
         resume_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
                      has_user, is_dj);
+      } else if (!strncasecmp(content + 1, "pn ", 3)) {
+        play_command(vgt, dis, &uobj, guildid, textchannelid, content + 1, wrong_vc,
+                     has_user, is_dj, 1);
       }
     }
 
@@ -1241,6 +1253,11 @@ int main(int argc, char **argv) {
     botname = DEFAULT_BOT_NAME;
   }
 
+  default_botprefix = getenv("BOT_PREFIX");
+  if (!default_botprefix) {
+    default_botprefix = BOT_PREFIX;
+  }
+
   if (argc > 1) {
     bottoken = argv[1];
   } else {
@@ -1248,7 +1265,8 @@ int main(int argc, char **argv) {
   }
   discord_t *discord = init_discord(bottoken, "641");
 
-  fprintf(stdout, "Token: %s\n", BOT_PREFIX);
+  fprintf(stdout, "Token: %s\n", bottoken);
+  fprintf(stdout, "Bot default prefix: %c\n", default_botprefix[0]);
 
   char buf[100];
   sm_get(discord->data_dictionary, DISCORD_HOSTNAME_KEY, buf, 100);

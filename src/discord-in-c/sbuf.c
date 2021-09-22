@@ -101,15 +101,19 @@ void sbuf_insert_front_value(struct sbuf_t *sp, void *value, int len) {
 }
 
 void sbuf_insert_value_position_from_front(struct sbuf_t *sp, void *value, int len, int position) {
+  if(position > sp->size){
+    return;
+  }
+
+  if (sem_wait(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+
   struct linked_node_t *newnode = malloc(sizeof(struct linked_node_t));
   newnode->value = malloc(sizeof(char) * len);
   newnode->len = len;
   memcpy(newnode->value, value, len);
   
-  
-  if (sem_wait(&(sp->mutex)) < 0) {
-    printf("semaphor ERror\n");
-  }
 
   struct linked_node_t *my_front = sp->front;
   while(position > 0){
@@ -133,14 +137,21 @@ void sbuf_insert_value_position_from_front(struct sbuf_t *sp, void *value, int l
 }
 
 void sbuf_insert_value_position_from_back(struct sbuf_t *sp, void *value, int len, int position) {
+  if(position > sp->size){
+    return;
+  }
+
+
+  if (sem_wait(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+
+
   struct linked_node_t *newnode = malloc(sizeof(struct linked_node_t));
   newnode->value = malloc(sizeof(char) * len);
   newnode->len = len;
   memcpy(newnode->value, value, len);
   
-  if (sem_wait(&(sp->mutex)) < 0) {
-    printf("semaphor ERror\n");
-  }
 
   struct linked_node_t *my_back = sp->back;
   while(position > 0){

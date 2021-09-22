@@ -78,10 +78,11 @@ The list here assumes the prefix is "-".
 
 ```
 Play music:                 -p [youtube link or text to search youtube]
+  Play next (cut queue):    -pn [youtube link or text]
 Pause music:                -pause
 Resume after pause:         -play
 Skip music:                 -skip
-Show queue:                 -queue [page number]
+Show queue:                 -queue         (or -queue [page number])
 Show current song:          -np
 Delete entry from queue:    -r [entry number in queue]
 Show youtube description:   -desc
