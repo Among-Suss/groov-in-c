@@ -79,7 +79,7 @@ if __name__ == "__main__":
     url = sys.argv[2]
 
     if len(sys.argv) > 3:
-        debug = sys.argv[3] == '-debug'
+        debug = sys.argv[3] == '--debug'
 
     text = requests.get(url).text
 
@@ -92,6 +92,9 @@ if __name__ == "__main__":
         if command == 'description':
             print(get_description(text))
         elif command == 'playlist':
-            print(json.dumps(get_playlist_data(text, debug)))
-    except:
+            print(json.dumps(get_playlist_data(text, debug), indent=2 if debug else None))
+    except Exception as e:
+        if debug:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
