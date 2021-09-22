@@ -903,6 +903,8 @@ void seek_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
     }
   }
 
+  fprintf(stdout, "Seeking to %d seconds.\n", length_in_seconds);
+
   seek_media_player(vgt->media, length_in_seconds);
 
   simple_send_msg(dis, "Seeked song!", textchannelid);
@@ -935,7 +937,7 @@ void shuffle_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
 
   send_typing_indicator(dis, textchannelid);
   shuffle_media_player(vgt->media);
-  sleep(2); //in order to make sure typing indicator reaches first
+  sleep(1); //in order to make sure typing indicator reaches first
   simple_send_msg(dis, "Shuffled Playlist!", textchannelid);
 }
 
@@ -966,7 +968,7 @@ void clear_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
 
   send_typing_indicator(dis, textchannelid);
   clear_media_player(vgt->media);
-  sleep(2); //in order to make sure typing indicator reaches first
+  sleep(1); //in order to make sure typing indicator reaches first
   simple_send_msg(dis, "Cleared Playlist!", textchannelid);
 }
 
@@ -1182,7 +1184,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       wrong_vc = found && strcmp(bot_channel_id, uobj.vc_id);
     }
 
-    fprintf(stdout, "content: %s\n", content);
+    //fprintf(stdout, "content: %s\n", content);
 
     if ((content[0] == botprefix[0])) {
       if (!strncasecmp(content + 1, "leave", 5)) {

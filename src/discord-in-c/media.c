@@ -349,6 +349,7 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
          *ffmpeg_running_state) {
 
     if(media_obj_ptr && sem_trywait(&(media_obj_ptr->skipper)) >= 0){
+      fprintf(stdout, "Media Player received skip signal, stopping playback.\n");
       break;
     }
 
@@ -503,7 +504,6 @@ void *ffmpeg_process_waiter(void *ptr) {
   ffmpeg_process_waiter_t *fptr = (ffmpeg_process_waiter_t *)ptr;
   pid_t pid = fptr->pid;
   int *ffmpeg_process_state = fptr->ffmpeg_process_state;
-  free(ptr);
 
   while (waitpid(pid, NULL, 0) < 0)
     ;
@@ -571,11 +571,12 @@ void play_youtube_url(char *youtube_link, int time_offset, char *key_str, char *
     }
   }
 
-  int ffmpeg_process_state_value = 1;
+  int *ffmpeg_state_value_pointer = malloc(sizeof(int));
+  *ffmpeg_state_value_pointer = 1;
   ffmpeg_process_waiter_t *fptr = malloc(sizeof(ffmpeg_process_waiter_t));
 
   fptr->pid = pid;
-  fptr->ffmpeg_process_state = &ffmpeg_process_state_value;
+  fptr->ffmpeg_process_state = ffmpeg_state_value_pointer;
 
   pthread_t tid;
   pthread_create(&tid, NULL, ffmpeg_process_waiter, fptr);
@@ -601,10 +602,15 @@ void play_youtube_url(char *youtube_link, int time_offset, char *key_str, char *
   fprintf(stdout, "Sending file using custom opus sender/encrypter...\n");
 
   rtp_send_file(cache_file_unique_name, dest_address, dest_port, sockfd, 120, diskey,
-                ssrc, &ffmpeg_process_state_value, media_obj_ptr);
+                ssrc, ffmpeg_state_value_pointer, media_obj_ptr);
 
   kill(pid, SIGKILL);
   remove(cache_file_unique_name);
+
+  pthread_cancel(tid);
+
+  free(fptr);
+  free(ffmpeg_state_value_pointer);
 }
 
 
@@ -636,6 +642,8 @@ void *media_player_threaded(void *ptr){
     if(!(video_age < 600 && video_age >= 0)){
       complete_youtube_object_fields(ytpobj_p);
     }
+    //debug -- log
+    fprintf(stdout, "Playing song: %s\nStarting at %d seconds.\n", ytpobj_p->title, ytpobj_p->start_time_offset);
     //copy the link into local buffer
     memcpy(link, ytpobj_p->audio_url, sizeof(ytpobj_p->audio_url));
     //get start_time_offset
