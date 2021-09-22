@@ -209,6 +209,47 @@ void *sbuf_remove_end_value(struct sbuf_t *sp, void *retval, int len,
   return retval;
 }
 
+
+void *sbuf_remove_position_from_end(struct sbuf_t *sp, int position, void *retval, int len) {
+  if (sem_wait(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+
+  
+  struct linked_node_t *retnode = 0;
+  if (sp->size > position) {
+    retnode = sp->back->prev;
+    while(position > 0){
+      retnode = retnode->prev;
+
+      position--;
+    }
+
+    retnode->next->prev = retnode->prev;
+    retnode->prev->next = retnode->next;
+
+    sp->size--;
+  }
+
+
+  if (retnode) {
+    if(retval)
+      memcpy(retval, retnode->value, MIN(len, retnode->len));
+    free(retnode->value);
+    free(retnode);
+  } else {
+    retval = 0;
+  }
+
+
+  if (sem_post(&(sp->mutex)) < 0) {
+    printf("semaphor ERror\n");
+  }
+
+  return retval;
+}
+
+
 void *sbuf_remove_front_value(struct sbuf_t *sp, void *retval, int len,
                            int lockitem) {
   
@@ -385,18 +426,19 @@ void sbuf_shuffle_random(struct sbuf_t *sp){
   }
 
   #define MOVE_MODULO 32
+  #define MOVE_OFFSET 7
   #define NUM_PASSES 3
   linked_node_t *i_node = sp->front->next;
-  linked_node_t *j_node = sp->front->next;
+  linked_node_t *j_node = sp->back->prev->prev;
   int delta = 0;
   srand(time(NULL));
   for (int i = 0; i < list_size * NUM_PASSES; i++){
-    delta = (rand() % MOVE_MODULO) + 5;
+    delta = (rand() % MOVE_MODULO) + MOVE_OFFSET;
 
     for (int j = 0; j < delta; j++){
-      j_node = j_node->next;
-      if(j_node == sp->back->prev){
-        j_node = sp->front->next;
+      j_node = j_node->prev;
+      if(j_node == sp->front){
+        j_node = sp->back->prev->prev;
       }
     }
 

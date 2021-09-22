@@ -78,9 +78,12 @@ The list here assumes the prefix is "-".
 
 ```
 Play music:                 -p [youtube link or text to search youtube]
+Pause music:                -pause
+Resume after pause:         -play
 Skip music:                 -skip
 Show queue:                 -queue [page number]
 Show current song:          -np
+Delete entry from queue:    -r [entry number in queue]
 Show youtube description:   -desc
 Make the bot leave:         -leave
 Clear queue:                -clear
@@ -97,7 +100,7 @@ For example:
 -p https://www.youtube.com/watch?v=h03hS1qGSLA
 ```
 
-These are all valid. To queue playlists, go to the playlist page then right click on a playlist video and click copy link. Or copy the url from the page that is playing the song inside the playlist. Queuing the playlist link directly (not the video link) does not work yet.
+These are all valid. Playlists can be queued. If a song inside a playlist is queued, the queue will start from the song's index.
 
 ### Bot configuration
 Bot server specific configuration can be applied by putting the configuration string in the server's welcome channel topic. The configuration string follows a very specific syntax.

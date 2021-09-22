@@ -355,7 +355,6 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
     if (read_test_len == 1) {
       lseek(in_fd, -1, SEEK_CUR);
     }else{
-      clock_gettime(CLOCK_REALTIME, &(media_obj_ptr->song_start_time));
       wait_for_time_slot(20000000, &state);
       continue;
     }
@@ -416,7 +415,9 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
           fprintf(stderr, "skipping invalid packet\n");
           continue;
         }
+
         /* update the rtp header and send */
+        media_obj_ptr->current_song_time = media_obj_ptr->current_song_time + (((double)samples) * 62500.0 / 3.0 / 1000000000.0);
         rtp.seq++;
         rtp.time += samples;
         rtp.payload_size = op.bytes;
@@ -446,6 +447,17 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
 
         /* convert number of 48 kHz samples to nanoseconds without overflow */
         wait_for_time_slot(samples * 62500 / 3, &state);
+
+        //pause function
+        int pauser_value;
+        sem_getvalue(&(media_obj_ptr->pauser), &pauser_value);
+        sem_wait(&(media_obj_ptr->pauser));
+        sem_post(&(media_obj_ptr->pauser));
+        if(pauser_value == 0){
+          fprintf(stdout, "Pause detected, reinitializing packet timer.\n");
+          state.initialized = 0;
+          wait_for_time_slot(0, &state);
+        }
       }
     }
   }
@@ -633,6 +645,7 @@ void *media_player_threaded(void *ptr){
     sbuf_stop_peeking(&(yptr->media_player_t_ptr->song_queue));
 
     //start playing music
+    yptr->media_player_t_ptr->current_song_time = 0;
     yptr->media_player_t_ptr->playing = 1;
     yptr->media_player_t_ptr->skippable = 1;
     send_websocket(yptr->vgt->voice_ssl,
@@ -697,6 +710,7 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
   sem_init(&(yptr->media_player_t_ptr->quitter), 0, 0);
   sem_init(&(yptr->media_player_t_ptr->insert_song_mutex), 0, 1);
   sem_init(&(yptr->media_player_t_ptr->destination_info_mutex), 0, 1);
+  sem_init(&(yptr->media_player_t_ptr->pauser), 0, 1);
 
   yptr->media_player_t_ptr->udp_fd = socketfd;
   yptr->media_player_t_ptr->ytp = yptr;

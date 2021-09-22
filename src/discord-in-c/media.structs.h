@@ -18,8 +18,10 @@ typedef struct youtube_page_object_t{
 typedef struct media_player_t{
   sbuf_t song_queue;
   sem_t skipper;
+  sem_t pauser;
   volatile int playing;
   volatile int skippable;
+  volatile int paused;
 
   volatile int udp_fd;
   struct sockaddr *addr;
@@ -38,7 +40,7 @@ typedef struct media_player_t{
 
   sem_t insert_song_mutex;
 
-  struct timespec song_start_time;
+  volatile double current_song_time;
 } media_player_t;
 
 typedef struct youtube_player_t{

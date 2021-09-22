@@ -108,3 +108,4 @@ void *sbuf_peek_end_value_direct(struct sbuf_t *sp, int *returned_len, int locki
 void sbuf_stop_peeking(struct sbuf_t *sp);
 void sbuf_shuffle_random(struct sbuf_t *sp);
 void sbuf_clear(struct sbuf_t *sp);
+void *sbuf_remove_position_from_end(struct sbuf_t *sp, int position, void *retval, int len);
