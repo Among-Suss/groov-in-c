@@ -1,13 +1,12 @@
-FROM archlinux
+FROM ubuntu:20.04
 
-# WORKAROUND for glibc 2.33 and old Docker
-# See https://github.com/actions/virtual-environments/issues/2658
-# Thanks to https://github.com/lxqt/lxqt-panel/pull/1562
-RUN patched_glibc=glibc-linux4-2.33-4-x86_64.pkg.tar.zst && \
-    curl -LO "https://repo.archlinuxcn.org/x86_64/$patched_glibc" && \
-    bsdtar -C / -xvf "$patched_glibc"
+ENV DEBIAN_FRONTEND noninteractive
+ENV DEBCONF_NONINTERACTIVE_SEEN true
 
-RUN pacman -Syu --noconfirm gcc make ffmpeg youtube-dl libsodium opus python-requests
+RUN apt-get -y update
+RUN apt-get -y upgrade
+RUN apt-get -y install make gcc libssl-dev libsodium-dev libopus-dev libogg-dev ffmpeg python3-pip python3-requests
+RUN pip install youtube-dl
 
 USER root
 
