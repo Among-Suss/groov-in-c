@@ -8,7 +8,6 @@ RUN patched_glibc=glibc-linux4-2.33-4-x86_64.pkg.tar.zst && \
     bsdtar -C / -xvf "$patched_glibc"
 
 RUN pacman -Syu --noconfirm gcc make ffmpeg youtube-dl libsodium opus python-requests
-RUN cp /etc/profile.pacnew /etc/profile
 
 USER root
 
