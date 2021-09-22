@@ -54,3 +54,5 @@ dkms.conf
 
 test
 test2
+
+*__pycache__*
