@@ -148,7 +148,7 @@ sudo pip install youtube-dl
 Install all the build and runtime dependencies
 ```
 sudo pacman -Syu
-sudo pacman -S base-devel openssl libsodium libogg opus python ffmpeg youtube-dl
+sudo pacman -S base-devel openssl libsodium libogg opus python ffmpeg youtube-dl python-requests
 ```
 
 ### Building
