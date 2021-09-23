@@ -8,6 +8,7 @@
 #include <math.h>
 
 #define DEFAULT_BOT_NAME "groov-in-c"
+#define DEFAULT_BOT_PREFIX "-"
 char *botname;
 char *bottoken;
 char *default_botprefix;
@@ -1246,6 +1247,9 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 }
 
 int main(int argc, char **argv) {
+  //make sure fprintf stdout works on docker
+  setbuf(stdout, NULL);
+
   sem_init(&(play_cmd_mutex), 0, 1);
 
   botname = getenv("BOT_NAME");
@@ -1255,7 +1259,7 @@ int main(int argc, char **argv) {
 
   default_botprefix = getenv("BOT_PREFIX");
   if (!default_botprefix) {
-    default_botprefix = BOT_PREFIX;
+    default_botprefix = DEFAULT_BOT_PREFIX;
   }
 
   if (argc > 1) {

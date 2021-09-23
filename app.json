@@ -11,6 +11,10 @@
       },
       "TOKEN":{
         "description": "Discord bot token."
+      },
+      "BOT_PREFIX":{
+        "description": "Discord bot command prefix.",
+        "value": "-"
       }
     }
   
