@@ -18,7 +18,17 @@ void init_openssl() {
  */
 void disconnect_and_free_ssl(SSL *ssl) {
   if(ssl){
+    int sockfd = SSL_get_rfd(ssl);
+    struct timeval tv;
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+
     SSL_shutdown(ssl);
+    SSL_shutdown(ssl);
+
+    sleep(1);
+    
     SSL_free(ssl);
   }
 }
@@ -396,36 +406,49 @@ SSL *establish_websocket_connection(char *hostname, int hostname_len,
 //callback will call with null buffer and 0 readlen when the connection ends...
 void *threaded_receive_websock(void *ptr) {
   pthread_detach(pthread_self());
-
-  callback_t callback_data = *((callback_t *)ptr);
-  free(ptr);
+  callback_t *callback_data_p = ((callback_t *)ptr);
 
   char *buffer;
   unsigned long readlen;
   int msgfin;
 
   int run = 1;
+  int trywaitval = -1;
   while (run >= 0){
-    buffer = simple_receive_websocket(callback_data.ssl, &readlen, &msgfin);
+    buffer = simple_receive_websocket(callback_data_p->ssl, &readlen, &msgfin);
+
+    trywaitval = sem_trywait(&(callback_data_p->exiter));
+    if(trywaitval >= 0){
+      break;
+    }
+
     if(buffer){
-      (callback_data.callback)(callback_data.ssl, callback_data.state, buffer, readlen);
+      (callback_data_p->callback)(callback_data_p->ssl, callback_data_p->state, buffer, readlen);
       free(buffer);
     }else{
       break;
     }
   }
 
-  (callback_data.callback)(callback_data.ssl, callback_data.state, 0, 0);
+  if(trywaitval < 0){
+    (callback_data_p->callback)(callback_data_p->ssl, callback_data_p->state, 0, 0);
+  }
+
+  free(ptr);
+
+  fprintf(stderr, "Litesocket listener thread exiting normally.\n");
   return NULL;
 }
 
-pthread_t bind_websocket_listener(SSL *ssl, void *state, callback_func_t callback){
+pthread_t bind_websocket_listener(SSL *ssl, void *state, callback_func_t callback, sem_t **exiter){
   pthread_t tid;
   
   callback_t *callback_data = malloc(sizeof(callback_t));
   callback_data->callback = callback;
   callback_data->ssl = ssl;
   callback_data->state = state;
+  *exiter = &(callback_data->exiter);
+  sem_init(&(callback_data->exiter), 0, 0);
 
   pthread_create(&tid, NULL, threaded_receive_websock, callback_data);
 

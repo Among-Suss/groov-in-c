@@ -10,6 +10,7 @@
 #include <sys/random.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <semaphore.h>
 
 #define WEBSOCKET_VERSION 13
 #define HTTP_MAX_RESPONSE 8192
@@ -46,4 +47,4 @@ SSL *establish_websocket_connection(char *hostname, int hostname_len,
                                     char *port, int port_len, char *request_uri,
                                     int request_uri_len);
 void *threaded_receive_websock(void *ptr);
-pthread_t bind_websocket_listener(SSL *ssl, void *state, callback_func_t callback);
+pthread_t bind_websocket_listener(SSL *ssl, void *state, callback_func_t callback, sem_t **exiter);

@@ -22,6 +22,8 @@ typedef struct discord_t {
   time_t last_reconnection_time;
   
   StrMap *user_vc_map;
+
+  sem_t *gateway_thread_exiter;
 } discord_t;
 
 
@@ -47,4 +49,6 @@ typedef struct voice_gateway_t {
   time_t last_reconnection_time;
 
   media_player_t *media;
+
+  sem_t *gateway_thread_exiter;
 } voice_gateway_t;

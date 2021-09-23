@@ -530,14 +530,14 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   sem_post(&(vgt->media->quitter));
 
   //stop voice gateway listener thread to prevent potential segfault (maybe)
-  pthread_cancel(vgt->voice_gate_listener_tid);
+  sem_post(vgt->gateway_thread_exiter);
   pthread_cancel(vgt->heartbeat_tid);
 
   //delete voice gateway object from discord object and request a close
   char *ptr = 0;
   sm_put(dis->voice_gateway_map, uobjp->guild_id, (char *)&ptr, sizeof(void *));
+  //send websocket close packet to vgt
   send_websocket(vgt->voice_ssl, "request close", strlen("request close"), 8);
-  disconnect_and_free_ssl(vgt->voice_ssl);
 
   //send message to leave voice channel
   char msg[2000];
@@ -548,6 +548,7 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
 
   //clean up vgt data
   sm_delete(vgt->data_dictionary);
+  disconnect_and_free_ssl(vgt->voice_ssl);
   free(vgt);
 
   //Done!

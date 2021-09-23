@@ -57,7 +57,7 @@ discord_t *init_discord(char *bot_token, char *discord_intent) {
 //These functions deal with cleanup code
 
 void free_voice_gateway(voice_gateway_t *vgt){
-  pthread_cancel(vgt->voice_gate_listener_tid);
+  sem_post(vgt->gateway_thread_exiter);
   pthread_cancel(vgt->heartbeat_tid);
   
   if (vgt->voice_ssl)
@@ -124,7 +124,7 @@ void connect_gateway(discord_t *discord_data) {
 
   discord_data->gateway_ssl = gatewayssl;
   discord_data->gateway_listen_tid = bind_websocket_listener(
-      gatewayssl, discord_data, internal_gateway_callback);
+      gatewayssl, discord_data, internal_gateway_callback, &(discord_data->gateway_thread_exiter));
 
   authenticate_gateway(discord_data, discord_intent);
 }
@@ -665,7 +665,7 @@ void reconnect_voice(voice_gateway_t *vgt){
   vgt->voice_ssl = voice_ssl;
 
   vgt->voice_gate_listener_tid =
-      bind_websocket_listener(voice_ssl, vgt, internal_voice_gateway_callback);
+      bind_websocket_listener(voice_ssl, vgt, internal_voice_gateway_callback, &(vgt->gateway_thread_exiter));
 
   if(vgt->reconnection_count){
     authenticate_voice_gateway(vgt, guild_id, botuid, sessionid, token);
@@ -803,7 +803,7 @@ voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char 
   vgt->voice_ssl = voice_ssl;
 
   vgt->voice_gate_listener_tid =
-      bind_websocket_listener(voice_ssl, vgt, internal_voice_gateway_callback);
+      bind_websocket_listener(voice_ssl, vgt, internal_voice_gateway_callback, &(vgt->gateway_thread_exiter));
 
   char botuid[DISCORD_MAX_ID_LEN];
   char token[DISCORD_MAX_ID_LEN];
