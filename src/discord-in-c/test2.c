@@ -358,7 +358,8 @@ void get_queue_callback(void *value, int len, void *state, int pos, int start,
                       sizeof(ytobj->title));
   escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
 
-  memcpy(array[pos - start], text4, len);
+  unsigned int cplen = ((unsigned int)len) > sizeof(text4) ? sizeof(text4) : ((unsigned int)len);
+  memcpy(array[pos - start], text4, cplen);
 }
 
 /* set the prefix for each guild based on settings described in welcome channel

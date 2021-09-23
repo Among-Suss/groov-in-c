@@ -17,6 +17,6 @@ ENV BOT_PREFIX=${BOT_PREFIX}
 ARG BOT_NAME=${BOT_NAME:-""}
 ENV BOT_NAME=${BOT_NAME}
 
-RUN make -B test2
+RUN make -B sanitize
 
 CMD ["./test2"]
