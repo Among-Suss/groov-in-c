@@ -1,10 +1,19 @@
 # groov-in-c
 An easy to self-host Discord music bot written in C
 
+## Table of contents
+
+
+ - [Hosting](#hosting)
+ - [Using the bot](#using-the-bot)
+ - [FAQ](#faq)
+ - [Build Instructions](#build-instructions)
+
+
 ## Hosting
 
 Prerequisites:
- - A Discord bot token: https://discordjs.guide/preparations/setting-up-a-bot-application.html#creating-your-bot
+ - A Discord bot token: https://discordjs.guide/preparations/setting-up-a-bot-application.html#creating-your-bot/
  - A free Heroku account: https://signup.heroku.com/
 
 Note: By default the bot will only run for 22 days a month. Check out the first question in the [FAQ](#faq) if you want it to always be online.
@@ -127,10 +136,18 @@ More configurations may be added in the future.
 
 **Q**: Why did my bot stopped after a couple of weeks?
 
-**A**: The Heroku free tier only allows 550 hours of total run time per month, which translates to about 23 days. If you want it to be always online, you can increase this number to 1000 hours by [adding your credit card and verifying your account](https://devcenter.heroku.com/articles/account-verification#:~:text=Go%20to%20your%20Account%20Settings,Click%20Add%20Credit%20Card%20.). Since 1000 hours is more than a month, Heroku won't charge you ***as long as you only have one application running***. If you are already using Heroku for other applications, make sure you pay attention to your total hours!
+**A**: With the Heroku free tier, you only get 550 total hours of run time. If you want it to be always online, you can increase this number to 1000 hours by adding your credit card and [verifying your account](https://devcenter.heroku.com/articles/account-verification#:~:text=Go%20to%20your%20Account%20Settings,Click%20Add%20Credit%20Card%20.). Since 1000 hours is more than a month, Heroku won't charge you ***as long as you only have one application running***. If you are already using Heroku for other applications, make sure you pay attention to your total hours!
 
 ## Build Instructions
 You can just run this repository through docker if that's your thing. This program only supports linux, but it is possible to get working on Windows using cygwin with some modification (not covered here).
+
+### Environment Variables
+| Name | Description | Default |
+|------|-------------|---------|
+| `TOKEN` | Discord bot token | *required* |
+| `BOT_PREFIX` | Bot prefix | `-` |
+| `BOT_NAME` | Bot config name | `groov-in-c` |
+
 
 ### Prerequisites
 
