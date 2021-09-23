@@ -286,23 +286,23 @@ void internal_gateway_callback(SSL *ssl, void *state, char *msg,
   cJSON *t_cjs = cJSON_GetObjectItem(cjs, "t");
   cJSON *op_cjs = cJSON_GetObjectItem(cjs, "op");
 
-  if (op_cjs->valueint == DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE &&
+  if (op_cjs && cJSON_IsNumber(op_cjs) && op_cjs->valueint == DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE &&
       !discord->heartbeating) {
     fprintf(stdout, "Gateway heartbeat received.\n");
     start_heartbeat_gateway(discord, cjs);
   }
 
-  if (cJSON_IsString(t_cjs) && strcasestr(t_cjs->valuestring, DISCORD_GATEWAY_READY)) {
+  if (t_cjs && cJSON_IsString(t_cjs) && strcasestr(t_cjs->valuestring, DISCORD_GATEWAY_READY)) {
     fprintf(stdout, "Gateway ready received.\n");
     gateway_ready(discord, cjs);
   }
 
-  if (cJSON_IsString(t_cjs) && strcasestr(t_cjs->valuestring, DISCORD_GATEWAY_VOICE_STATE_UPDATE)) {
+  if (t_cjs && cJSON_IsString(t_cjs) && strcasestr(t_cjs->valuestring, DISCORD_GATEWAY_VOICE_STATE_UPDATE)) {
     fprintf(stdout, "Updating voice states.\n");
     update_voice_state(discord, cjs);
   }
 
-  if (cJSON_IsString(t_cjs) && strcasestr(t_cjs->valuestring, DISCORD_GATEWAY_VOICE_SERVER_UPDATE)) {
+  if (t_cjs && cJSON_IsString(t_cjs) && strcasestr(t_cjs->valuestring, DISCORD_GATEWAY_VOICE_SERVER_UPDATE)) {
     fprintf(stdout, "Updating voice server.\n");
     update_voice_server(discord, cjs);
   }
