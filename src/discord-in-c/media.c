@@ -501,6 +501,7 @@ int rtp_send_file(const char *filename, const char *dest, const char *port, cons
 
 void *ffmpeg_process_waiter(void *ptr) {
   pthread_detach(pthread_self());
+
   ffmpeg_process_waiter_t *fptr = (ffmpeg_process_waiter_t *)ptr;
   pid_t pid = fptr->pid;
   int *ffmpeg_process_state = fptr->ffmpeg_process_state;
@@ -510,6 +511,12 @@ void *ffmpeg_process_waiter(void *ptr) {
 
   *ffmpeg_process_state = 0;
 
+
+  sem_wait(&(fptr->wait_until_song_finish));
+
+
+  free(fptr->ffmpeg_process_state);
+  free(fptr);
   return NULL;
 }
 
@@ -577,6 +584,7 @@ void play_youtube_url(char *youtube_link, int time_offset, char *key_str, char *
 
   fptr->pid = pid;
   fptr->ffmpeg_process_state = ffmpeg_state_value_pointer;
+  sem_init(&(fptr->wait_until_song_finish), 0, 0);
 
   pthread_t tid;
   pthread_create(&tid, NULL, ffmpeg_process_waiter, fptr);
@@ -607,10 +615,7 @@ void play_youtube_url(char *youtube_link, int time_offset, char *key_str, char *
   kill(pid, SIGKILL);
   remove(cache_file_unique_name);
 
-  pthread_cancel(tid);
-
-  free(fptr);
-  free(ffmpeg_state_value_pointer);
+  sem_post(&(fptr->wait_until_song_finish));
 }
 
 

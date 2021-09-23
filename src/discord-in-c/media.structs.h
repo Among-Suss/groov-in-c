@@ -1,6 +1,7 @@
 typedef struct ffmpeg_process_waiter_t{
     pid_t pid;
     int *ffmpeg_process_state;
+    sem_t wait_until_song_finish;
 } ffmpeg_process_waiter_t;
 
 typedef struct youtube_page_object_t{
