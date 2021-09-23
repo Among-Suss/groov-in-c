@@ -522,15 +522,22 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   sem_wait(&(vgt->media->insert_song_mutex));
 
   //skipping and quitting media player
-  youtube_page_object_t yobj = {0};
-  sbuf_insert_front_value((&(vgt->media->song_queue)), &yobj, sizeof(yobj));
-  sem_post(&(vgt->media->quitter));
+  youtube_page_object_t ytpobj;
+  sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
+                        0);
+  sbuf_insert_front_value((&(vgt->media->song_queue)), &ytpobj, sizeof(ytpobj));
   sem_post(&(vgt->media->skipper));
+  sem_post(&(vgt->media->quitter));
+
+  //stop voice gateway listener thread to prevent potential segfault (maybe)
+  pthread_cancel(vgt->voice_gate_listener_tid);
+  pthread_cancel(vgt->heartbeat_tid);
 
   //delete voice gateway object from discord object and request a close
   char *ptr = 0;
   sm_put(dis->voice_gateway_map, uobjp->guild_id, (char *)&ptr, sizeof(void *));
   send_websocket(vgt->voice_ssl, "request close", strlen("request close"), 8);
+  disconnect_and_free_ssl(vgt->voice_ssl);
 
   //send message to leave voice channel
   char msg[2000];
@@ -539,7 +546,11 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   send_websocket(dis->gateway_ssl, msg, strlen(msg), WEBSOCKET_OPCODE_MSG);
   sem_post(&(dis->gateway_writer_mutex));
 
-  free_voice_gateway(vgt);
+  //clean up vgt data
+  sm_delete(vgt->data_dictionary);
+  free(vgt);
+
+  //Done!
   fprintf(stdout, "Successfully left voice channel and cleaned up.\n");
 }
 
