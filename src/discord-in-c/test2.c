@@ -242,8 +242,9 @@ void *threaded_play_cmd(void *ptr) {
     
     // If a playlist is found
     fprintf(stdout, "Checking for playlist...\n");
-    if (!strncasecmp(pobj->content, "https://www.youtube.com/", 24) && ((strstr(pobj->content, "&list=") != NULL) || (strstr(pobj->content, "playlist") != NULL)))
-    {
+    if (!strncasecmp(pobj->content, "https://www.youtube.com/", 24) && ((strstr(pobj->content, "&list=") != NULL) || (strstr(pobj->content, "playlist") != NULL))) {
+      fprintf(stdout, "Playlist found!\n");
+
       queued_playlist = 1;
 
       // Search for index
@@ -271,7 +272,7 @@ void *threaded_play_cmd(void *ptr) {
       fprintf(stdout, "Starting queue at index: %d\n", start_index);
 
       FILE *fp;
-      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist '";
+      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist -r 0 '";
       strcat(cmd, pobj->content);
       strcat(cmd, "'");
 
@@ -286,19 +287,26 @@ void *threaded_play_cmd(void *ptr) {
         }
         buf[i] = '\0';
 
-        cJSON* video_json_list = cJSON_Parse(buf);
-        int size = cJSON_GetArraySize(video_json_list);
+        if (buf[0] != '\0') {
+          cJSON *video_json_list = cJSON_Parse(buf);
+          int size = cJSON_GetArraySize(video_json_list);
+          
+          char msg[1024];
+          snprintf(msg, sizeof(msg), "Queued %d songs", size - start_index);
+          simple_send_msg(pobj->dis, msg, pobj->textchannelid);
 
-        char msg[1024];
-        sprintf(msg, "Queued %d songs", size - start_index);
-        simple_send_msg(pobj->dis, msg, pobj->textchannelid);
+          for (int j = start_index + 1; j < size; j++) {
+            insert_queue_ytb_partial(pobj->vgt->media, cJSON_GetArrayItem(video_json_list, j));
+          }
 
-        for (int j = start_index + 1; j < size; j++) {
-          insert_queue_ytb_partial(pobj->vgt->media, cJSON_GetArrayItem(video_json_list, j));
+          free(buf);
+          cJSON_Delete(video_json_list);
         }
-
-        free(buf);
-        cJSON_Delete(video_json_list);
+        else {
+          char msg[1024];
+          snprintf(msg, sizeof(msg), "Invalid playlist! Maybe the playlist is private?");
+          simple_send_msg(pobj->dis, msg, pobj->textchannelid);
+        }
       }
       pclose(fp);
     }
