@@ -138,6 +138,24 @@ More configurations may be added in the future.
 
 **A**: With the Heroku free tier, you only get 550 total hours of run time. If you want it to be always online, you can increase this number to 1000 hours by adding your credit card and [verifying your account](https://devcenter.heroku.com/articles/account-verification#:~:text=Go%20to%20your%20Account%20Settings,Click%20Add%20Credit%20Card%20.). Since 1000 hours is more than a month, Heroku won't charge you ***as long as you only have one application running***. If you are already using Heroku for other applications, make sure you pay attention to your total hours!
 
+##
+
+**Q**: Why is the play command *sometimes* failing?
+
+**A**: There's always a very small chance that the command would fail due to how youtube-dl works, but playing the song again should work.
+
+##
+
+**Q**: Why is the play command always failing?
+
+**A**: If the play command fails everytime, try and restart the bot by turning the dyno on and off (see [bot activation](#3-activate-bot)).
+
+##
+
+**Q**: Why does the bot randomly disconnect and reconnect?
+
+**A**: For some reason, the Discord API will randomly disconnect the bot, which can take a moment to reconnect.
+
 ## Build Instructions
 You can just run this repository through docker if that's your thing. This program only supports linux, but it is possible to get working on Windows using cygwin with some modification (not covered here).
 
