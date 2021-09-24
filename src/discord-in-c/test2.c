@@ -353,7 +353,10 @@ void get_queue_callback(void *value, int len, void *state, int pos, int start,
   char **array = state;
   youtube_page_object_t *ytobj = value;
 
-  array[pos - start] = malloc(len);
+  int index = 2 * (pos - start);
+
+  array[index] = malloc(sizeof(ytobj->title));
+  array[index + 1] = malloc(sizeof(ytobj->link));
 
   if (ytobj->title[0] == 0) {
     complete_youtube_object_fields(ytobj);
@@ -366,8 +369,8 @@ void get_queue_callback(void *value, int len, void *state, int pos, int start,
                       sizeof(ytobj->title));
   escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
 
-  unsigned int cplen = ((unsigned int)len) > sizeof(text4) ? sizeof(text4) : ((unsigned int)len);
-  memcpy(array[pos - start], text4, cplen);
+  memcpy(array[index], text4, sizeof(ytobj->title));
+  memcpy(array[index + 1], ytobj->link, sizeof(ytobj->link));
 }
 
 /* set the prefix for each guild based on settings described in welcome channel
@@ -780,7 +783,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
     queue_page -= 1;
 
     //get all the titles
-    char *(title_arr[QUEUELENGTH]) = {0};
+    char *(title_arr[QUEUELENGTH * 2]) = {0};
     sbuf_iterate(&(vgt->media->song_queue), get_queue_callback, title_arr, queue_page * QUEUELENGTH,
                  (queue_page + 1) * QUEUELENGTH - 1);
 
@@ -790,15 +793,17 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
     int queue_end = 0;
     int num_of_songs = vgt->media->song_queue.size - 1;
 
-    strcat(inner_message, "```");
-    for(int x = 0; x < QUEUELENGTH; x++){
-      int written_index = queue_page*QUEUELENGTH + x + 1;
+    for(int x = 0; x < QUEUELENGTH * 2; x += 2){
+      int written_index = queue_page*QUEUELENGTH + (x/2) + 1;
       if(written_index == 1){
-        snprintf(temp_message, sizeof(temp_message), "Now Playing: %.40s", title_arr[x]);
+        snprintf(temp_message, sizeof(temp_message), "```Now Playing: %.40s", title_arr[x]);
         if(strlen(title_arr[x]) > 40){
           fix_string_ending(temp_message);
           strcat(temp_message, "...");
         }
+        strcat(temp_message, "```");
+        //strcat(temp_message, "\\n");
+        strcat(temp_message, title_arr[x+1]);
         strcat(temp_message, "\\n\\n");
         strcat(inner_message, temp_message);
       }else if(title_arr[x]){
@@ -807,6 +812,9 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
           fix_string_ending(temp_message);
           strcat(temp_message, "...");
         }
+        strcat(temp_message, " [(link)](");
+        strcat(temp_message, title_arr[x+1]);
+        strcat(temp_message, ")");
         strcat(temp_message, "\\n");
         strcat(inner_message, temp_message);
       }else{
@@ -814,10 +822,8 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
       }
     }
     if(queue_end){
-      snprintf(temp_message, sizeof(temp_message), "\\n----End of Queue----\\n```");
+      snprintf(temp_message, sizeof(temp_message), "\\n----End of Queue----\\n");
       strcat(inner_message, temp_message);
-    }else{
-      strcat(inner_message, "```");
     }
     snprintf(temp_message, sizeof(temp_message), "\\n Queue Page %ld of %ld. \\n Total %d songs in queue.", queue_page + 1, (long int)ceil(((double)num_of_songs)/((double)QUEUELENGTH)), num_of_songs);
     strcat(inner_message, temp_message);
