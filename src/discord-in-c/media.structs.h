@@ -25,7 +25,7 @@ typedef struct media_player_t{
   volatile int paused;
 
   volatile int udp_fd;
-  struct sockaddr *addr;
+  struct sockaddr *addr_malloc;
   socklen_t addrlen;
   unsigned char key[32];
 

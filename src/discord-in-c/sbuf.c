@@ -319,8 +319,9 @@ void *sbuf_peek_end_value_copy(struct sbuf_t *sp, void *retval, int len,
     if (sem_trywait(&(sp->items)) < 0) {
       if(errno == EAGAIN){
         return_item = 0;
+      }else{
+        printf("semaphor ERror\n");
       }
-      printf("semaphor ERror\n");
     }
   }
 
@@ -391,8 +392,9 @@ void *sbuf_peek_end_value_direct(struct sbuf_t *sp, int *returned_len, int locki
     if (sem_trywait(&(sp->items)) < 0) {
       if(errno == EAGAIN){
         return_item = 0;
+      }else{
+        printf("semaphor ERror\n");
       }
-      printf("semaphor ERror\n");
     }
   }
 

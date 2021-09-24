@@ -523,6 +523,7 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   sem_wait(&(vgt->media->insert_song_mutex));
 
   //skipping and quitting media player
+  fprintf(stdout, "Quitting media player.\n");
   youtube_page_object_t ytpobj;
   sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
                         0);
@@ -531,6 +532,7 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   sem_post(&(vgt->media->quitter));
 
   //stop voice gateway listener thread to prevent potential segfault (maybe)
+  fprintf(stdout, "Stopping voice heartbeat and listener.\n");
   sem_post(vgt->gateway_thread_exiter);
   pthread_cancel(vgt->heartbeat_tid);
 

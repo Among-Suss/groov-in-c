@@ -292,9 +292,7 @@ int send_rtp_packet(int fd, struct sockaddr *addr, socklen_t addrlen,
   return ret;
 }
 
-int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
-                          socklen_t addrlen, const int sockfd, int payload_type,
-                          unsigned char *key, int ssrc,
+int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
                           int *ffmpeg_running_state, media_player_t *media_obj_ptr) {
   /* POSIX MONOTONIC CLOCK MEASURER */
   clockid_t clock_id;
@@ -307,7 +305,6 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
   init_time_slot_wait(&state);
 
   rtp_header rtp;
-  int fd;
   int ret;
   int in_fd;
   ogg_sync_state oy;
@@ -318,8 +315,6 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
   char *in_data, dummy_char;
   const long in_size = 8192; //= 8192;
   size_t in_read;
-
-  fd = sockfd;
   
   rtp.version = 2;
   rtp.type = payload_type;
@@ -424,10 +419,10 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
         rtp.payload_size = op.bytes;
         if(media_obj_ptr) {
           sem_wait(&(media_obj_ptr->destination_info_mutex));
-          send_rtp_packet(media_obj_ptr->udp_fd, media_obj_ptr->addr, media_obj_ptr->addrlen, &rtp, op.packet, media_obj_ptr->key);
+          send_rtp_packet(media_obj_ptr->udp_fd, media_obj_ptr->addr_malloc, media_obj_ptr->addrlen, &rtp, op.packet, media_obj_ptr->key);
           sem_post(&(media_obj_ptr->destination_info_mutex));
-        } else {
-          send_rtp_packet(fd, addr, addrlen, &rtp, op.packet, key);
+        }else{
+          fprintf(stderr, "ERROR: media player obj is NULL.\n");
         }
 
         //timer to verify that sender is on time
@@ -470,7 +465,7 @@ int rtp_send_file_to_addr(const char *filename, struct sockaddr *addr,
   return 0;
 }
 
-int rtp_send_file(const char *filename, const char *dest, const char *port, const int sockfd,
+int rtp_send_file(const char *filename, const char *dest, const char *port,
                   int payload_type, unsigned char *key, int ssrc,
                   int *ffmpeg_running_state, media_player_t *media_obj_ptr) {
   int ret;
@@ -489,13 +484,13 @@ int rtp_send_file(const char *filename, const char *dest, const char *port, cons
     return -1;
   }
 
-  media_obj_ptr->addr = addrs->ai_addr;
+  memcpy(media_obj_ptr->addr_malloc, addrs->ai_addr, sizeof(struct sockaddr));
   media_obj_ptr->addrlen = addrs->ai_addrlen;
   memcpy(media_obj_ptr->key, key, sizeof(media_obj_ptr->key));
 
-  ret = rtp_send_file_to_addr(filename, addrs->ai_addr, addrs->ai_addrlen, sockfd,
-                              payload_type, key, ssrc, ffmpeg_running_state, media_obj_ptr);
   freeaddrinfo(addrs);
+
+  ret = rtp_send_file_to_addr(filename, payload_type, ssrc, ffmpeg_running_state, media_obj_ptr);
   return ret;
 }
 
@@ -609,7 +604,7 @@ void play_youtube_url(char *youtube_link, int time_offset, char *key_str, char *
 
   fprintf(stdout, "Sending file using custom opus sender/encrypter...\n");
 
-  rtp_send_file(cache_file_unique_name, dest_address, dest_port, sockfd, 120, diskey,
+  rtp_send_file(cache_file_unique_name, dest_address, dest_port, 120, diskey,
                 ssrc, ffmpeg_state_value_pointer, media_obj_ptr);
 
   kill(pid, SIGKILL);
@@ -680,6 +675,7 @@ void *media_player_threaded(void *ptr){
 
   sbuf_deinit(&(yptr->media_player_t_ptr->song_queue));
 
+  free(yptr->media_player_t_ptr->addr_malloc);
   free(yptr->key_str);
   free(yptr->ssrc_str);
   free(yptr->dest_address);
@@ -709,6 +705,7 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
   yptr->dest_port = malloc(dest_port_len);
   yptr->cache_file_unique_name = malloc(cache_file_unique_name_len);
   yptr->media_player_t_ptr = calloc(1, sizeof(media_player_t));
+  yptr->media_player_t_ptr->addr_malloc = malloc(sizeof(struct sockaddr));
 
   yptr->socketfd = socketfd;
 
@@ -780,7 +777,7 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
             gai_strerror(ret));
   }
 
-  memcpy(media->addr, addrs->ai_addr, sizeof(struct sockaddr));
+  memcpy(media->addr_malloc, addrs->ai_addr, sizeof(struct sockaddr));
   media->addrlen = addrs->ai_addrlen;
 
   freeaddrinfo(addrs);
