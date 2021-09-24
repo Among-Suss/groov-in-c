@@ -813,6 +813,7 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
 }
 
 int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
+  int func_retval = 0;
   int pipeids[2];
 
   if (query == NULL) {
@@ -845,33 +846,55 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   close(pipeids[1]);
   int retval = 0;
   waitpid(pid, &retval, 0);
-  if (retval) return -1;
+  if (retval) {
+    func_retval = -1;
+    goto CLEANUP_GETVIDINFO;
+  }
 
   char str[sizeof(ytobjptr->title) + sizeof(ytobjptr->link) - 64 + sizeof(ytobjptr->description) 
         + sizeof(ytobjptr->audio_url) + sizeof(ytobjptr->duration)];
   int len = read(pipeids[0], str, sizeof(str) - 2);
   if(len == -1){
-    return -1;
+    func_retval = -1;
+    goto CLEANUP_GETVIDINFO;
   }
   str[len] = 0;
-
-  close(pipeids[0]);
   
   char *uid = strchr(str, '\n');
+  if(!uid){
+    func_retval = -1;
+    goto CLEANUP_GETVIDINFO;
+  }
   *uid = 0;
   uid++;
 
   char *audio_url = strchr(uid, '\n');
+  if(!audio_url){
+    func_retval = -1;
+    goto CLEANUP_GETVIDINFO;
+  }
   *audio_url = 0;
   audio_url++;
 
   char *desc = strchr(audio_url, '\n');
+  if(!desc){
+    func_retval = -1;
+    goto CLEANUP_GETVIDINFO;
+  }
   *desc = 0;
   desc++;
 
   char *duration = strrchr(desc, '\n');
+  if(!duration){
+    func_retval = -1;
+    goto CLEANUP_GETVIDINFO;
+  }
   *duration = 0;
   duration = strrchr(desc, '\n');
+  if(!duration){
+    func_retval = -1;
+    goto CLEANUP_GETVIDINFO;
+  }
   *duration = 0;
   duration++;
 
@@ -901,7 +924,11 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
 
   clock_gettime(CLOCK_REALTIME, &(ytobjptr->audio_url_create_date));
 
-  return 0;
+  CLEANUP_GETVIDINFO:
+
+  close(pipeids[0]);
+
+  return func_retval;
 }
 
 //-1 index signifies insert at front
