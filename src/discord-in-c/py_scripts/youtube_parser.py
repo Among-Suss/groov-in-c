@@ -1,7 +1,13 @@
+from typing import Any
 import requests
 import json
 import sys
+import os
+import time
+from datetime import datetime
+import argparse
 
+RETRIES = 10
 
 def get_description(text):
     """Retrieves the video description
@@ -29,7 +35,7 @@ def get_playlist_data(text, do_save=False):
     parsed_json: dict = json.loads(json_string)
 
     if do_save:
-        with open('test.json', 'w') as fp:
+        with open('__pycache__/test.json', 'w') as fp:
             fp.write(json_string)
 
     playlist_mode = '/playlist' in url
@@ -67,34 +73,69 @@ def get_playlist_data(text, do_save=False):
     return dict_list
     
     
+def log(e: str):
+     with open(os.path.join(os.path.dirname(__file__), "parser.log"), "a+") as fp:
+        fp.write(str(datetime.now()) + '\n')            
+        fp.write(str(e))
+        fp.write('\n')
 
-# String utils
+def retry(retries, func, *args) -> Any:
+    backoff = 0
+    for _ in range(retries + 1):
+        try:
+            return func(*args)
+        except Exception as e:
+            log(e)
+            time.sleep(backoff)
+            backoff += 1
+            pass
+    sys.exit(1)
+
+# Utils
+
+
 def get_between(text: str, start: str, end: str) -> str:
     return text.split(start)[1].split(end)[0]
 
 if __name__ == "__main__":
-    debug = False
+    parser = argparse.ArgumentParser(description='Parses youtube url.')
 
-    command = sys.argv[1]
-    url = sys.argv[2]
+    # Global arguments
+    parent_parser = argparse.ArgumentParser(add_help=False)
 
-    if len(sys.argv) > 3:
-        debug = sys.argv[3] == '--debug'
+    parent_parser.add_argument('-r', '--retries',type=int, default=RETRIES, help='fetch retries count')
+    parent_parser.add_argument('-d', '--debug', dest='debug', action='store_true', help='debug flag')
+    parent_parser.set_defaults(debug=False)
 
-    text = requests.get(url).text
+    # Commands
+    subparser = parser.add_subparsers(dest='command')
+
+    description = subparser.add_parser('description', parents=[parent_parser])
+    playlist = subparser.add_parser('playlist', parents=[parent_parser])
+    
+    # Parse arguments
+    parser.add_argument('url', help='url to parse')
+    args = parser.parse_args()
+
+    command = args.command
+    url = args.url
+    debug = args.debug
+    retries = args.retries
 
     if debug:
         print("====DEBUG MODE====")
-        with open('test.html', 'w') as fp:
-            fp.write(text)
 
-    try:
+
+    def fetch_and_parse():
+        text = requests.get(url).text
+
+        if debug:
+            with open('__pycache__/test.html', 'w') as fp:
+                fp.write(text)
+
         if command == 'description':
             print(get_description(text))
         elif command == 'playlist':
             print(json.dumps(get_playlist_data(text, debug), indent=2 if debug else None))
-    except Exception as e:
-        if debug:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+
+    retry(retries, fetch_and_parse)

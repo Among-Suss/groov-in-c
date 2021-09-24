@@ -56,3 +56,6 @@ test
 test2
 
 *__pycache__*
+
+*.log
+.env
