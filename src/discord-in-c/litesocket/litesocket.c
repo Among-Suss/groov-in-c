@@ -1,5 +1,6 @@
 #include "litesocket.h"
 #include "litesocket.structs.h"
+#include "../utils.h"
 
 /* Helper functions for websocket connections */
 
