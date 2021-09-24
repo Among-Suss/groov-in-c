@@ -11,13 +11,6 @@ USER root
 COPY . /app
 WORKDIR /app/src/discord-in-c/
 
-ARG TOKEN=${TOKEN:-""}
-ENV TOKEN=${TOKEN}
-ARG BOT_PREFIX=${BOT_PREFIX:-""}
-ENV BOT_PREFIX=${BOT_PREFIX}
-ARG BOT_NAME=${BOT_NAME:-""}
-ENV BOT_NAME=${BOT_NAME}
-
 RUN make -B sanitize
 
 CMD ["./test2"]
