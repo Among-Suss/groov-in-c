@@ -272,7 +272,7 @@ void *threaded_play_cmd(void *ptr) {
       fprintf(stdout, "Starting queue at index: %d\n", start_index);
 
       FILE *fp;
-      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist -r 0 '";
+      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist -r 10 '";
       strcat(cmd, pobj->content);
       strcat(cmd, "'");
 
