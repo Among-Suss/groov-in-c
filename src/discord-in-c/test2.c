@@ -1,4 +1,5 @@
 #include "cJSON.h"
+#include "utils.h"
 #include "sbuf.structs.h"
 #include "discord.h"
 #include "discord.structs.h"
@@ -12,6 +13,8 @@
 char *botname;
 char *bottoken;
 char *default_botprefix;
+
+#define LOG_FILE "output.log"
 
 sem_t play_cmd_mutex;
 
@@ -1270,6 +1273,19 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 }
 
 int main(int argc, char **argv) {
+  /* Logging */
+  // Levels: 0=LOG_TRACE 1=LOG_DEBUG 2=LOG_INFO 3=LOG_WARN 4=LOG_ERROR 5=LOG_FATAL 
+  char *log_level_env = getenv("LOG_LEVEL");
+  int log_level = 0;
+  if (log_level_env) {
+    log_level = atoi(log_level_env);
+  }
+
+  log_set_level(log_level);
+
+  FILE* fp = fopen(LOG_FILE, "w");
+  log_add_fp(fp, log_level);
+
   //make sure fprintf stdout works on docker
   setbuf(stdout, NULL);
 
