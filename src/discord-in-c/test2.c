@@ -1325,6 +1325,8 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         resume_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
                      has_user, is_dj);
       } else if (!strncasecmp(content + 1, "pn ", 3)) {
+        play_command(vgt, dis, &uobj, guildid, textchannelid, content + 1,
+                     wrong_vc, has_user, is_dj, 1);
       } else if (!strncasecmp(content + 1, "log", 3)) {
         log_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc, has_user,
                     is_dj);
