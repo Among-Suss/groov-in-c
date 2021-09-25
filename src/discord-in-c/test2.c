@@ -16,7 +16,7 @@ char *default_botprefix;
 
 #define DEFAULT_LOG_LEVEL 0
 #define LOG_FILE "output.log"
-#define LOG_FILE_COPY "output.snapshot.log"
+#define LOG_PY_FILE "py_scripts/parser.log"
 
 sem_t play_cmd_mutex;
 
@@ -1156,9 +1156,9 @@ void resume_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
 // Sends the log file
 void log_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                  char *guildid, char *textchannelid, int wrong_vc, int has_user,
-                 int is_dj) {
+                 int is_dj, char *file) {
   if (DEBUG) {
-    simple_send_file(dis, LOG_FILE, LOG_FILE, textchannelid);
+    simple_send_file(dis, file, file, textchannelid);
   } else {
     log_warn("Set DEBUG environment variable to enable sending logs");
   }
@@ -1321,10 +1321,13 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       } else if (!strncasecmp(content + 1, "pn ", 3)) {
         play_command(vgt, dis, &uobj, guildid, textchannelid, content + 1,
                      wrong_vc, has_user, is_dj, 1);
-      } else if (!strncasecmp(content + 1, "log", 3)) {
+      } else if (!strncasecmp(content + 1, "log", 4)) {
         log_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc, has_user,
-                    is_dj);
-      }
+                    is_dj, LOG_FILE);
+      } else if (!strncasecmp(content + 1, "logp", 3)) {
+        log_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc, has_user,
+                    is_dj, LOG_PY_FILE);
+      } 
     }
 
     CLEANUP_CREATE_MESSAGE:
