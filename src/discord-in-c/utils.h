@@ -1,4 +1,8 @@
 #include "log.h"
 
-#define printf(message, args...) log_info(message, ##args)
-#define fprintf(channel, message, args...) log_info(message, ##args)
+// Logging
+#define printf(message, args...) log_print(message, ##args)
+#define fprintf(channel, message, args...) log_print(message, ##args)
+
+// Env
+#define DEBUG getenv("DEBUG")
