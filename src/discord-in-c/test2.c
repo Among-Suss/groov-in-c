@@ -14,9 +14,15 @@ char *botname;
 char *bottoken;
 char *default_botprefix;
 
+#define DEFAULT_LOG_LEVEL 0
 #define LOG_FILE "output.log"
+#define LOG_FILE_COPY "output.snapshot.log"
 
 sem_t play_cmd_mutex;
+
+/* -------------------------------------------------------------------------- */
+/*                              HELPER FUNCTIONS                              */
+/* -------------------------------------------------------------------------- */
 
 /* Simple sending message to discord
  *
@@ -36,7 +42,45 @@ void simple_send_msg(discord_t *dis, char *text, char *textchannelid) {
   send_raw(dis->https_api_ssl, buffer, strlen(buffer));
 }
 
-void send_typing_indicator(discord_t *dis, char *textchannelid){
+/**
+ * Simple sending a file
+ * @param file Name of file to open
+ * @param filename Display name of file sent on the message
+ */
+void simple_send_file(discord_t *dis, char *file, char *filename,
+                      char *textchannelid) {
+
+  FILE *fp = fopen(file, "rb");
+  fseek(fp, 0, SEEK_END);
+  long length = ftell(fp);
+  size_t text_length;
+  fseek(fp, 0, SEEK_SET);
+
+  char *text = malloc(length + 10);
+  if (text) {
+    text_length = fread(text, 1, length, fp);
+  }
+  text[text_length] = '\0';
+  fclose(fp);
+
+  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                DISCORD_PORT, strlen(DISCORD_PORT));
+  char message[length + 500];
+  char filename_section[strlen(filename) + 20];
+  snprintf(filename_section, sizeof(filename_section), "filename=\"%s\"",
+           filename);
+  snprintf(message, text_length + 1000, POST_FORMDATA POST_FORMDATA_END, "file",
+           filename_section, "Content-Type: \"plain/text\"", text);
+  char header[2000];
+  snprintf(header, 2000, DISCORD_API_POST_FILE, textchannelid, bottoken,
+           (int)strlen(message));
+  char buffer[strlen(header) + strlen(message) + 1000];
+  snprintf(buffer, strlen(header) + strlen(message) + 1000,
+           "%s\r\n\r\n%s\r\n\r\n", header, message);
+  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+}
+
+void send_typing_indicator(discord_t *dis, char *textchannelid) {
   ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
                 DISCORD_PORT, strlen(DISCORD_PORT));
   char header[1000];
@@ -1105,10 +1149,25 @@ void resume_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   }else{
     simple_send_msg(dis, "Already playing.", textchannelid);
   }
-  
 }
 
-int check_user_dj_role(discord_t *dis, cJSON *cjs, char *guildid){
+/* ----------------------------- HELPER COMMANDS ---------------------------- */
+
+// Sends the log file
+void log_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
+                 char *guildid, char *textchannelid, int wrong_vc, int has_user,
+                 int is_dj) {
+  if (DEBUG) {
+    simple_send_file(dis, LOG_FILE, LOG_FILE, textchannelid);
+  } else {
+    log_warn("Set DEBUG environment variable to enable sending logs");
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                Main Funcions                               */
+/* -------------------------------------------------------------------------- */
+int check_user_dj_role(discord_t *dis, cJSON *cjs, char *guildid) {
   char key[200];
   snprintf(key, sizeof(key), "%s%s%s", DISCORD_GATEWAY_DJ_ROLES, guildid, DISCORD_GATEWAY_ROLE_EVERYONE);
   int found = sm_get(dis->data_dictionary, key, NULL, 0);
@@ -1260,8 +1319,9 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
         resume_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
                      has_user, is_dj);
       } else if (!strncasecmp(content + 1, "pn ", 3)) {
-        play_command(vgt, dis, &uobj, guildid, textchannelid, content + 1, wrong_vc,
-                     has_user, is_dj, 1);
+      } else if (!strncasecmp(content + 1, "log", 3)) {
+        log_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc, has_user,
+                    is_dj);
       }
     }
 
@@ -1274,16 +1334,17 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
 
 int main(int argc, char **argv) {
   /* Logging */
-  // Levels: 0=LOG_TRACE 1=LOG_DEBUG 2=LOG_INFO 3=LOG_WARN 4=LOG_ERROR 5=LOG_FATAL 
-  char *log_level_env = getenv("LOG_LEVEL");
-  int log_level = 0;
-  if (log_level_env) {
-    log_level = atoi(log_level_env);
+
+  // Levels:
+  // 0=LOG_TRACE 1=LOG_DEBUG 2=LOG_INFO 3=LOG_WARN 4=LOG_ERROR 5=LOG_FATAL
+  char *log_level = getenv("LOG_LEVEL");
+  if (log_level) {
+    log_set_level(atoi(log_level));
+  } else {
+    log_set_level(DEFAULT_LOG_LEVEL);
   }
 
-  log_set_level(log_level);
-
-  FILE* fp = fopen(LOG_FILE, "w");
+  FILE *fp = fopen(LOG_FILE, "w");
   log_add_fp(fp, log_level);
 
   //make sure fprintf stdout works on docker
@@ -1322,6 +1383,7 @@ int main(int argc, char **argv) {
     sleep(100);
 
   free_discord(discord);
+  fclose(fp);
 
   printf("exiting cleanly\n");
 }

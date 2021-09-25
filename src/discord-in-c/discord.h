@@ -22,6 +22,7 @@
 #define DISCORD_HOST "discord.com"
 #define DISCORD_PORT "443"
 
+#define BOUNDARY "ilovecommunism"
 
 //discord http api
 #define DISCORD_API_POST_MSG "POST /api/v9/channels/%s/messages HTTP/1.1\r\n" \
@@ -29,6 +30,22 @@
   "Authorization: Bot %s\r\n" \
   "Content-Length: %d\r\n" \
   "Content-Type: application/json"
+
+#define DISCORD_API_POST_FILE                                                  \
+  "POST /api/v9/channels/%s/messages HTTP/1.1\r\n"                             \
+  "Host: " DISCORD_HOST "\r\n"                                                 \
+  "Authorization: Bot %s\r\n"                                                  \
+  "Content-Length: %d\r\n"                                                     \
+  "Content-Type: multipart/form-data; boundary=" BOUNDARY
+
+#define POST_FORMDATA                                                          \
+  "--" BOUNDARY "\r\n"                                                         \
+  "Content-Disposition: form-data; name=\"%s\"; %s\r\n"                        \
+  "%s\r\n"                                                                     \
+  "\r\n"                                                                       \
+  "%s\r\n"
+
+#define POST_FORMDATA_END "--" BOUNDARY "--"
 
 #define DISCORD_API_POST_TYPING "POST /api/v9/channels/%s/typing HTTP/1.1\r\n" \
   "Host: " DISCORD_HOST "\r\n" \
