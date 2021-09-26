@@ -121,6 +121,7 @@ int parse_time(char *const time) {
 
 /* ----------------------------- FETCH PLAYLIST ----------------------------- */
 
+// Video playlist (where the link also contains a video) json macros
 #define VIDEO_JSON_KEYS_LEN 5
 #define VIDEO_JSON_KEYS                                                        \
   {                                                                            \
@@ -129,6 +130,7 @@ int parse_time(char *const time) {
   }
 #define VIDEO_JSON_DATA_KEY "playlistPanelVideoRenderer"
 
+// Playlist page json macros
 #define PAGE_JSON_KEYS_LEN 14
 #define PAGE_JSON_KEYS                                                         \
   {                                                                            \
@@ -139,33 +141,40 @@ int parse_time(char *const time) {
   }
 #define PAGE_JSON_DATA_KEY "playlistVideoRenderer"
 
+// Error codes
 #define FETCH_ERR 1
 #define TRIM_ERR 2
 #define LEN_ERR 3
+#define KEY_ERR 4 // Happens with invalid playlist IDs
 
-int fetch_playlist(char *url, media_player_t *media,
-                   void (*insert_partial_ytp_callback)(media_player_t *media,
-                                                       char *id, char *title,
+int fetch_playlist(char *url, int start, void *media,
+                   void (*insert_partial_ytp_callback)(void *media, char *id,
+                                                       char *title,
                                                        char *duration,
                                                        int length)) {
 
+  // Fetch html
   char *html;
   int fetch_err = fetch_get(url, &html);
   if (fetch_err) {
     return FETCH_ERR;
   }
 
+  // Search for data json and trim
   int trim_err = trim_between(html, "ytInitialData = ", ";</script>");
   if (trim_err) {
+    free(html);
     return TRIM_ERR;
   }
 
+  // Check if playlist page or video playlist
   int playlist_page = strstr(url, "/playlist") != NULL;
 
+  // Get inner video list
   cJSON *video_json_list = cJSON_Parse(html);
-
   cJSON *inner_json = video_json_list;
 
+  // Navigate into inner json
   if (playlist_page) {
     char keys[PAGE_JSON_KEYS_LEN][50] = PAGE_JSON_KEYS;
 
@@ -182,16 +191,21 @@ int fetch_playlist(char *url, media_player_t *media,
     for (int i = 0; i < VIDEO_JSON_KEYS_LEN; i++) {
       inner_json = cJSON_GetObjectItem(inner_json, keys[i]);
     }
-  }
 
-  puts(cJSON_Print(inner_json));
+    if (!inner_json) {
+      cJSON_Delete(video_json_list);
+      free(html);
+      return KEY_ERR;
+    }
+  }
 
   int len = cJSON_GetArraySize(inner_json);
 
-  for (int i = 0; i < len; i++) {
+  // Insert each video
+  for (int i = start; i < len; i++) {
     cJSON *data = cJSON_GetArrayItem(inner_json, i);
 
-    // Sometimes the last video json is a continuation link rather than a video
+    // Skip if the last video json is a continuation link rather than a video
     if (cJSON_HasObjectItem(data, "continuationItemRenderer")) {
       continue;
     }
@@ -199,6 +213,7 @@ int fetch_playlist(char *url, media_player_t *media,
     cJSON *video = cJSON_GetObjectItem(
         data, playlist_page ? PAGE_JSON_DATA_KEY : VIDEO_JSON_DATA_KEY);
 
+    // Get key values
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(video, "videoId"));
 
     char *title;
@@ -216,8 +231,12 @@ int fetch_playlist(char *url, media_player_t *media,
     char *duration = cJSON_GetStringValue(cJSON_GetObjectItem(
         cJSON_GetObjectItem(video, "lengthText"), "simpleText"));
 
-    if (!duration)
+    if (!duration) {
+      cJSON_Delete(video_json_list);
+      free(html);
+
       return LEN_ERR;
+    }
 
     int time = parse_time(duration);
 

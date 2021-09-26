@@ -19,9 +19,17 @@ int fetch_get(char *url, char **raw);
 
 int trim_between(char *text, char const *start, char const *end);
 
+
 /* ----------------------------- Main functions ----------------------------- */
-int fetch_playlist(char *url, media_player_t *media,
-                   void (*insert_partial_ytp_callback)(media_player_t *media,
-                                                       char *id, char *title,
+
+/**
+ * Fetches playlist and inserts into media list through callback
+ * @param url
+ * @param media Media object for callback (Used void pointer to avoid requiring dependency, is this a good idea?)
+ * @param insert_partial_ytp_callback
+ */
+int fetch_playlist(char *url, int start, void *media,
+                   void (*insert_partial_ytp_callback)(void *media, char *id,
+                                                       char *title,
                                                        char *duration,
                                                        int length));
