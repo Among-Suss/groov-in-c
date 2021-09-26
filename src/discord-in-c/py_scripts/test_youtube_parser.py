@@ -5,7 +5,7 @@ import time
 
 FILE_NAME = os.path.join(os.path.dirname(__file__), "youtube_parser.py")
 
-URL = "https://www.youtube.com/playlist?list=PLlJZn_WcZ1FJhllZhSUSoZUurIr04i-TL"
+URL = "https://www.youtube.com/watch?v=3lPEjlmRsWw&list=PLkLnTkKXBSxjMGUBkL7cWc9IRtvNVu7Or"
 URL_PAGE = "https://www.youtube.com/playlist?list=PLlJZn_WcZ1FJhllZhSUSoZUurIr04i-TL"
 BAD_URL = "https://www.youtube.com/watch?v=01skyPMeeoc&list=PL8D03A4C0FFBBE36"
 

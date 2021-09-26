@@ -4,6 +4,7 @@
 #include "discord.structs.h"
 #include "media.h"
 #include "media.structs.h"
+#include "youtube_fetch.h"
 
 #include <math.h>
 
@@ -271,44 +272,7 @@ void *threaded_play_cmd(void *ptr) {
 
       fprintf(stdout, "Starting queue at index: %d\n", start_index);
 
-      FILE *fp;
-      char cmd[1035] = "python3 py_scripts/youtube_parser.py playlist -r 10 '";
-      strcat(cmd, pobj->content);
-      strcat(cmd, "'");
-
-      fp = popen(cmd, "r");
-      if (fp != NULL) {
-        char *buf, ch;
-        buf = malloc(sizeof(char) * 60000);
-
-        int i = 0;
-        while ((ch = fgetc(fp)) != EOF) {
-          buf[i++] = ch;
-        }
-        buf[i] = '\0';
-
-        if (buf[0] != '\0') {
-          cJSON *video_json_list = cJSON_Parse(buf);
-          int size = cJSON_GetArraySize(video_json_list);
-          
-          char msg[1024];
-          snprintf(msg, sizeof(msg), "Queued %d songs", size - start_index);
-          simple_send_msg(pobj->dis, msg, pobj->textchannelid);
-
-          for (int j = start_index + 1; j < size; j++) {
-            insert_queue_ytb_partial(pobj->vgt->media, cJSON_GetArrayItem(video_json_list, j));
-          }
-
-          free(buf);
-          cJSON_Delete(video_json_list);
-        }
-        else {
-          char msg[1024];
-          snprintf(msg, sizeof(msg), "Invalid playlist! Maybe the playlist is private?");
-          simple_send_msg(pobj->dis, msg, pobj->textchannelid);
-        }
-      }
-      pclose(fp);
+      fetch_playlist(pobj->content, pobj->vgt->media, insert_queue_ytb_partial);
     }
   } else {
     fprintf(stdout, "Query provided as a search token.\n");
