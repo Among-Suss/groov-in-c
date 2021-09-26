@@ -3,6 +3,9 @@
 #include <string.h>
 #include <curl/curl.h>
 #include "../cJSON.h"
+#include "../sbuf.structs.h"
+#include "../media.h"
+#include "../media.structs.h"
 
 /* -------------------------------- Lib curl -------------------------------- */
 struct MemoryStruct {
@@ -19,4 +22,7 @@ int fetch_get(char *url, char **raw);
 
 int trim_between(char *restrict text, char const *start, char const *end);
 
-int fetch_playlist(char *url);
+int fetch_playlist(char *url,
+                   void (*insert_partial_ytp_callback)(char *id, char *title,
+                                                       char *duration,
+                                                       int length));

@@ -60,7 +60,6 @@ int fetch_get(char *url, char **raw) {
 
   /* get it! */
   res = curl_easy_perform(curl_handle);
-  res = 1;
 
   /* check for errors */
   if (res != CURLE_OK) {
@@ -107,6 +106,39 @@ int trim_between(char *restrict text, char const *start, char const *end) {
 /*                                 FETCH DATA                                 */
 /* -------------------------------------------------------------------------- */
 
-int fetch_playlist(char *url) {
-  
+//(media_player_t *media, char *id, char *title, char *duration, int length)
+
+int fetch_playlist(char *url,
+                   void (*insert_partial_ytp_callback)(char *id, char *title,
+                                                       char *duration,
+                                                       int length)) {
+
+  char *html;
+  int fetch_err = fetch_get(url, &html);
+
+
+  if (fetch_err) {
+    return 1;
+  }
+
+  int trim_err = trim_between(html, "ytInitialData = ", ";</script>");
+
+  if (trim_err) {
+    return 1;
+  }
+  printf("%s", html);
+
+  free(html);
+}
+
+void mock(char *id, char *title, char *duration, int length) {
+  printf("ID: %s, Title: %s, Duration: %s, Length: %d", id, title, duration,
+         length);
+}
+
+#define URL                                                                    \
+  "https://www.youtube.com/playlist?list=PLlJZn_WcZ1FJhllZhSUSoZUurIr04i-TL"
+
+int main() {
+  fetch_playlist(URL, mock);
 }
