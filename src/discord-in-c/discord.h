@@ -42,7 +42,8 @@
   "\"tts\": false,"\
   "\"embeds\": [{"\
     "\"title\": \"%s\","\
-    "\"description\": \"%s\\n%s\""\
+    "\"description\": \"%s\\n%s\","\
+    "\"color\": 10181046"\
   "}]"\
 "}"
 
