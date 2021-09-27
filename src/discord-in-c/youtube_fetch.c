@@ -115,6 +115,53 @@ int parse_time(char *const time) {
   return 0;
 }
 
+// You must free the result if result is non-NULL.
+char *str_replace(char *orig, char *rep, char *with) {
+  char *result;  // the return string
+  char *ins;     // the next insert point
+  char *tmp;     // varies
+  int len_rep;   // length of rep (the string to remove)
+  int len_with;  // length of with (the string to replace rep with)
+  int len_front; // distance between rep and end of last rep
+  int count;     // number of replacements
+
+  // sanity checks and initialization
+  if (!orig || !rep)
+    return NULL;
+  len_rep = strlen(rep);
+  if (len_rep == 0)
+    return NULL; // empty rep causes infinite loop during count
+  if (!with)
+    with = "";
+  len_with = strlen(with);
+
+  // count the number of replacements needed
+  ins = orig;
+  for (count = 0; tmp = strstr(ins, rep); ++count) {
+    ins = tmp + len_rep;
+  }
+
+  tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+
+  if (!result)
+    return NULL;
+
+  // first time through the loop, all the variable are set correctly
+  // from here on,
+  //    tmp points to the end of the result string
+  //    ins points to the next occurrence of rep in orig
+  //    orig points to the remainder of orig after "end of rep"
+  while (count--) {
+    ins = strstr(orig, rep);
+    len_front = ins - orig;
+    tmp = strncpy(tmp, orig, len_front) + len_front;
+    tmp = strcpy(tmp, with) + len_with;
+    orig += len_front + len_rep; // move to next "end of rep"
+  }
+  strcpy(tmp, orig);
+  return result;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                 FETCH DATA                                 */
 /* -------------------------------------------------------------------------- */
@@ -134,10 +181,10 @@ int parse_time(char *const time) {
 #define PAGE_JSON_KEYS_LEN 14
 #define PAGE_JSON_KEYS                                                         \
   {                                                                            \
-    "contents", "twoColumnBrowseResultsRenderer", "tabs", {'\0'},              \
-        "tabRenderer", "content", "sectionListRenderer", "contents", {'\0'},   \
-        "itemSectionRenderer", "contents", {'\0'},                             \
-        "playlistVideoListRenderer", "contents"                                \
+    "contents", "twoColumnBrowseResultsRenderer", "tabs", "\0", "tabRenderer", \
+        "content", "sectionListRenderer", "contents", "\0",                    \
+        "itemSectionRenderer", "contents", "\0", "playlistVideoListRenderer",  \
+        "contents"                                                             \
   }
 #define PAGE_JSON_DATA_KEY "playlistVideoRenderer"
 
@@ -148,10 +195,7 @@ int parse_time(char *const time) {
 #define KEY_ERR 4 // Happens with invalid playlist IDs
 
 int fetch_playlist(char *url, int start, void *media,
-                   void (*insert_partial_ytp_callback)(void *media, char *id,
-                                                       char *title,
-                                                       char *duration,
-                                                       int length)) {
+                   insert_partial_ytp_callback callback) {
 
   // Fetch html
   char *html;
@@ -192,6 +236,7 @@ int fetch_playlist(char *url, int start, void *media,
       inner_json = cJSON_GetObjectItem(inner_json, keys[i]);
     }
 
+    // Invalid playlist IDs will be missing keys here
     if (!inner_json) {
       cJSON_Delete(video_json_list);
       free(html);
@@ -240,11 +285,35 @@ int fetch_playlist(char *url, int start, void *media,
 
     int time = parse_time(duration);
 
-    insert_partial_ytp_callback(media, id, title, duration, time);
+    callback(media, id, title, duration, time);
   }
 
   cJSON_Delete(video_json_list);
   free(html);
 
   return 0;
+}
+
+int fetch_description(char *url, char **description) {
+  // Fetch html
+  char *html;
+  int fetch_err = fetch_get(url, &html);
+  if (fetch_err) {
+    return FETCH_ERR;
+  }
+
+  trim_between(html, "\"description\":{\"simpleText\":\"", "\"},");
+
+  char *escaped_newline = str_replace(html, "\\n", "\n");
+  *description = str_replace(escaped_newline, "\\u0026", "&");
+
+  free(escaped_newline);
+  free(html);
+
+  return 0;
+}
+
+
+int parse_description_timestamps(char *description) {
+  // TODO Implement timestamp parsing
 }

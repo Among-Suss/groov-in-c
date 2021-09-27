@@ -19,17 +19,27 @@ int fetch_get(char *url, char **raw);
 
 int trim_between(char *text, char const *start, char const *end);
 
+typedef void (*insert_partial_ytp_callback)(void *media, char *id,
+                                                       char *title,
+                                                       char *duration,
+                                                       int length);
 
 /* ----------------------------- Main functions ----------------------------- */
 
 /**
- * Fetches playlist and inserts into media list through callback
- * @param url
- * @param media Media object for callback (Used void pointer to avoid requiring dependency, is this a good idea?)
- * @param insert_partial_ytp_callback
+ * Fetches playlist and inserts into media list through callback.
+ * @param url Video URL
+ * @param start Start index
+ * @param media Media object for callback
+ * @param callback Insert partial youtube page callback
+ * @return Error code
  */
 int fetch_playlist(char *url, int start, void *media,
-                   void (*insert_partial_ytp_callback)(void *media, char *id,
-                                                       char *title,
-                                                       char *duration,
-                                                       int length));
+                   insert_partial_ytp_callback callback);
+
+/**
+ * Fetches description and escapes newlines and &
+ * @param url Video URL
+ * @param description Double pointer for return description. Must be freed
+ */
+int fetch_description(char *url, char **description);

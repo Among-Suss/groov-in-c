@@ -11,11 +11,9 @@
 
 #define RETRIES 10
 
-int count = 0;
-
 void mock_insert(void *media, char *id, char *title, char *duration,
                  int length) {
-  count++;
+  
 }
 
 INIT_SUITE
@@ -23,18 +21,14 @@ INIT_SUITE
 int main(int argc, char **argv) {
   printf("Suite: %s\n", argv[0]);
 
-  count = 0;
   int url = 1;
-
   for (int i = 0; i < RETRIES; i++) {
     url = fetch_playlist(URL, 0, NULL, mock_insert);
     if (url == 0) break;
   }
 
   assert("Regular URL should succeed", 0, url);
-  assert("Regular URL should queue 200 songs", 200, count);
 
-  count = 0;
   int url_page = 1;
   for (int i = 0; i < RETRIES; i++) {
     url_page = fetch_playlist(URL_PAGE, 0, NULL, mock_insert);
@@ -42,7 +36,6 @@ int main(int argc, char **argv) {
       break;
   }
   assert("Page URL should succeed", 0, url_page);
-  assert("Page URL should queue 100 songs", 100, count);
 
   int bad_url = fetch_playlist(URL_BAD, 0, NULL, mock_insert);
   assert("Bad URL should fail", 4, bad_url);
