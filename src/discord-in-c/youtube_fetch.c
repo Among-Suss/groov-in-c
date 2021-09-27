@@ -195,7 +195,7 @@ char *str_replace(char *orig, char *rep, char *with) {
 #define KEY_ERR 4 // Happens with invalid playlist IDs
 
 int fetch_playlist(char *url, int start, void *media,
-                   insert_partial_ytp_callback callback) {
+                   insert_partial_ytp_callback callback, char *title) {
 
   // Fetch html
   char *html;
@@ -218,9 +218,17 @@ int fetch_playlist(char *url, int start, void *media,
   cJSON *video_json_list = cJSON_Parse(html);
   cJSON *inner_json = video_json_list;
 
+  char *playlist_title = NULL;
+
   // Navigate into inner json
   if (playlist_page) {
     char keys[PAGE_JSON_KEYS_LEN][50] = PAGE_JSON_KEYS;
+
+    playlist_title = cJSON_GetStringValue(cJSON_GetObjectItem(
+        cJSON_GetObjectItem(cJSON_GetObjectItem(inner_json, "metadata"),
+                            "playlistMetadataRenderer"),
+        "title"));
+
 
     for (int i = 0; i < PAGE_JSON_KEYS_LEN; i++) {
       if (!keys[i][0]) {
@@ -229,20 +237,30 @@ int fetch_playlist(char *url, int start, void *media,
         inner_json = cJSON_GetObjectItem(inner_json, keys[i]);
       }
     }
+
+
   } else {
     char keys[VIDEO_JSON_KEYS_LEN][50] = VIDEO_JSON_KEYS;
 
     for (int i = 0; i < VIDEO_JSON_KEYS_LEN; i++) {
       inner_json = cJSON_GetObjectItem(inner_json, keys[i]);
+
+      if (strncmp(keys[i], "playlist", 8) == 0 && !playlist_title) {
+        playlist_title = cJSON_GetStringValue(cJSON_GetObjectItem(
+            cJSON_GetObjectItem(inner_json, "playlist"), "title"));
+      }
     }
 
+
     // Invalid playlist IDs will be missing keys here
-    if (!inner_json) {
+    if (!inner_json) { 
       cJSON_Delete(video_json_list);
       free(html);
       return KEY_ERR;
     }
   }
+
+  snprintf(title, strlen(playlist_title) + 1, "%s", playlist_title);
 
   int len = cJSON_GetArraySize(inner_json);
 
@@ -261,15 +279,15 @@ int fetch_playlist(char *url, int start, void *media,
     // Get key values
     char *id = cJSON_GetStringValue(cJSON_GetObjectItem(video, "videoId"));
 
-    char *title;
+    char *song_title;
     if (playlist_page) {
-      title = cJSON_GetStringValue(cJSON_GetObjectItem(
+      song_title = cJSON_GetStringValue(cJSON_GetObjectItem(
           cJSON_GetArrayItem(
               cJSON_GetObjectItem(cJSON_GetObjectItem(video, "title"), "runs"),
               0),
           "text"));
     } else {
-      title = cJSON_GetStringValue(cJSON_GetObjectItem(
+      song_title = cJSON_GetStringValue(cJSON_GetObjectItem(
           cJSON_GetObjectItem(video, "title"), "simpleText"));
     }
 
@@ -285,7 +303,7 @@ int fetch_playlist(char *url, int start, void *media,
 
     int time = parse_time(duration);
 
-    callback(media, id, title, duration, time);
+    callback(media, id, song_title, duration, time);
   }
 
   cJSON_Delete(video_json_list);
@@ -312,7 +330,6 @@ int fetch_description(char *url, char **description) {
 
   return 0;
 }
-
 
 int parse_description_timestamps(char *description) {
   // TODO Implement timestamp parsing

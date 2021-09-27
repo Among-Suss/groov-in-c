@@ -288,9 +288,11 @@ void *threaded_play_cmd(void *ptr) {
 
       int song_count = pobj->vgt->media->song_queue.size - 1;
 
+      char *title = malloc(sizeof(char) * 1024);
       for (int i = 0; i < RETRIES; i++) {
-        playlist_err = fetch_playlist(pobj->content, start_index + 1, pobj->vgt->media,
-                                      insert_queue_ytb_partial);
+        playlist_err =
+            fetch_playlist(pobj->content, start_index + 1, pobj->vgt->media,
+                           insert_queue_ytb_partial, title);
 
         // If pass or KEY_ERR (for invalid urls)
         if (playlist_err == 0 || playlist_err == 4) {
@@ -305,8 +307,12 @@ void *threaded_play_cmd(void *ptr) {
         fprintf(stdout, "Playlist error code: %d\n", playlist_err);
         snprintf(message, 1024, "Invalid playlist! Is the list private?");
       } else {
-        snprintf(message, 1024, "Queued %d songs", new_song_count);
+        snprintf(message, 1024, "Queued `%d` songs from `%s`", new_song_count,
+                 title);
       }
+
+
+      free(title);
 
       simple_send_msg(pobj->dis, message, pobj->textchannelid);
     }

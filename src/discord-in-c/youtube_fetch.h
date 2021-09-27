@@ -32,10 +32,11 @@ typedef void (*insert_partial_ytp_callback)(void *media, char *id,
  * @param start Start index
  * @param media Media object for callback
  * @param callback Insert partial youtube page callback
+ * @param title Return pointer for playlist title. Must be freed
  * @return Error code
  */
 int fetch_playlist(char *url, int start, void *media,
-                   insert_partial_ytp_callback callback);
+                   insert_partial_ytp_callback callback, char *title);
 
 /**
  * Fetches description and escapes newlines and &

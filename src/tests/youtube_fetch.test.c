@@ -13,7 +13,6 @@
 
 void mock_insert(void *media, char *id, char *title, char *duration,
                  int length) {
-  
 }
 
 INIT_SUITE
@@ -21,24 +20,37 @@ INIT_SUITE
 int main(int argc, char **argv) {
   printf("Suite: %s\n", argv[0]);
 
-  int url = 1;
-  for (int i = 0; i < RETRIES; i++) {
-    url = fetch_playlist(URL, 0, NULL, mock_insert);
-    if (url == 0) break;
-  }
+  int retries = 0;
 
-  assert("Regular URL should succeed", 0, url);
+  char *title = malloc(sizeof(char) * 1024);
 
-  int url_page = 1;
+  int url_err = 1;
   for (int i = 0; i < RETRIES; i++) {
-    url_page = fetch_playlist(URL_PAGE, 0, NULL, mock_insert);
-    if (url_page == 0)
+    url_err = fetch_playlist(URL, 0, NULL, mock_insert, title);
+    if (url_err == 0) {
+      retries = i;
       break;
+    }
   }
-  assert("Page URL should succeed", 0, url_page);
 
-  int bad_url = fetch_playlist(URL_BAD, 0, NULL, mock_insert);
-  assert("Bad URL should fail", 4, bad_url);
+  assert(0, url_err, "Regular URL should succeed: %d tries", retries + 1);
+  assert_str("weird jap music", title, "Regular URL should have correct title");
+
+  int url_page_err = 1;
+  for (int i = 0; i < RETRIES; i++) {
+    url_page_err = fetch_playlist(URL_PAGE, 0, NULL, mock_insert, title);
+    if (url_page_err == 0) {
+      retries = i;
+      break;
+    }
+  }
+  assert(0, url_page_err, "Page URL should succeed: %d tries", retries + 1);
+  assert_str("Jazz", title, "Page URL should have correct title");
+
+  int bad_url_err = fetch_playlist(URL_BAD, 0, NULL, mock_insert, title);
+  assert(4, bad_url_err, "Bad URL should fail");
+
+  free(title);
 
   END_SUITE
 }
