@@ -3,6 +3,7 @@
 #include "litesocket/litesocket.structs.h"
 #include "sbuf.structs.h"
 #include "media.structs.h"
+#include "utils.h"
 
 void authenticate_gateway(discord_t *discord, char *discord_intent);
 void internal_gateway_callback(SSL *ssl, void *state, char *msg,

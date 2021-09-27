@@ -1,0 +1,8 @@
+.github/*
+.vscode/*
+**/*.pyc
+
+
+**/*.log
+
+*.md

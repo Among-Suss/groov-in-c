@@ -31,7 +31,7 @@
 #include "discord.structs.h"
 #include "media.structs.h"
 #include "litesocket/litesocket.structs.h"
-
+#include "utils.h"
 
 
 
@@ -432,8 +432,7 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
             (long)((end.tv_nsec - start.tv_nsec) / 1000) + secediff * 1000000;
 
         if (usecdiff > 25000 || usecdiff < 15000) {
-          fprintf(stderr,
-                  "WHOOPS...Abnormal Frame: "
+          log_warn("WHOOPS...Abnormal Frame: "
                   "........................................................... "
                   "%ld\n",
                   usecdiff);
@@ -643,7 +642,7 @@ void *media_player_threaded(void *ptr){
       complete_youtube_object_fields(ytpobj_p);
     }
     //debug -- log
-    fprintf(stdout, "Playing song: %s\nStarting at %d seconds.\n", ytpobj_p->title, ytpobj_p->start_time_offset);
+    fprintf(stdout, "Playing song: %s; Starting at %d seconds.\n", ytpobj_p->title, ytpobj_p->start_time_offset);
     //copy the link into local buffer
     memcpy(link, ytpobj_p->audio_url, sizeof(ytpobj_p->audio_url));
     //get start_time_offset
