@@ -1,4 +1,4 @@
-FROM debian:bullseye-20210902-slim
+FROM debian:bullseye-slim
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBCONF_NONINTERACTIVE_SEEN true
