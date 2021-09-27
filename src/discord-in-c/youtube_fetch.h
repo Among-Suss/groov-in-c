@@ -3,7 +3,6 @@
 #include <string.h>
 #include <curl/curl.h>
 #include "cJSON.h"
-#include "media.h"
 
 /* -------------------------------- Lib curl -------------------------------- */
 struct MemoryStruct {
