@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM debian:bullseye-20210902-slim
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBCONF_NONINTERACTIVE_SEEN true
