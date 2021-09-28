@@ -51,7 +51,5 @@ int main(int argc, char **argv) {
   int bad_url_err = fetch_playlist(URL_BAD, 0, NULL, mock_insert, title);
   assert(4, bad_url_err, "Bad URL should fail");
 
-  free(title);
-
   END_SUITE
 }
