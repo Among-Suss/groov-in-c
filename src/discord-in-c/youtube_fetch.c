@@ -103,65 +103,18 @@ int trim_between(char *restrict text, char const *start, char const *end) {
 }
 
 int parse_time(char *const time) {
-  int h = -1, m = -1, s = -1, ret;
+  int h = -1, m = -1, s = -1;
   if (strlen(time) <= 5) {
-    int ret = sscanf(time, "%d:%2d", &m, &s);
+    sscanf(time, "%d:%2d", &m, &s);
     h = 0;
   } else {
-    int ret = sscanf(time, "%d:%d:%2d", &h, &m, &s);
+    sscanf(time, "%d:%d:%2d", &h, &m, &s);
   }
   if (h == -1 || m == -1 || s == -1 || !isdigit(time[strlen(time) - 1])) {
     return -1;
   }
 
   return h * 3600 + m * 60 + s;
-}
-
-// You must free the result if result is non-NULL.
-char *str_replace(char *orig, char *rep, char *with) {
-  char *result;  // the return string
-  char *ins;     // the next insert point
-  char *tmp;     // varies
-  int len_rep;   // length of rep (the string to remove)
-  int len_with;  // length of with (the string to replace rep with)
-  int len_front; // distance between rep and end of last rep
-  int count;     // number of replacements
-
-  // sanity checks and initialization
-  if (!orig || !rep)
-    return NULL;
-  len_rep = strlen(rep);
-  if (len_rep == 0)
-    return NULL; // empty rep causes infinite loop during count
-  if (!with)
-    with = "";
-  len_with = strlen(with);
-
-  // count the number of replacements needed
-  ins = orig;
-  for (count = 0; tmp = strstr(ins, rep); ++count) {
-    ins = tmp + len_rep;
-  }
-
-  tmp = result = malloc(strlen(orig) + (len_with - len_rep) * count + 1);
-
-  if (!result)
-    return NULL;
-
-  // first time through the loop, all the variable are set correctly
-  // from here on,
-  //    tmp points to the end of the result string
-  //    ins points to the next occurrence of rep in orig
-  //    orig points to the remainder of orig after "end of rep"
-  while (count--) {
-    ins = strstr(orig, rep);
-    len_front = ins - orig;
-    tmp = strncpy(tmp, orig, len_front) + len_front;
-    tmp = strcpy(tmp, with) + len_with;
-    orig += len_front + len_rep; // move to next "end of rep"
-  }
-  strcpy(tmp, orig);
-  return result;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -315,51 +268,8 @@ PLAYLIST_FETCH_CLEANUP:
   return ret;
 }
 
-/*
- * Unused
- */
-int fetch_description(char *url, char **description) {
-  // Fetch html
-  char *html;
-  int fetch_err = fetch_get(url, &html);
-  if (fetch_err) {
-    return FETCH_ERR;
-  }
-
-  trim_between(html, "\"description\":{\"simpleText\":\"", "\"},");
-
-  char *escaped_newline = str_replace(html, "\\n", "\n");
-  *description = str_replace(escaped_newline, "\\u0026", "&");
-
-  free(escaped_newline);
-  free(html);
-
-  return 0;
-}
-
-int fetch_description_youtube_dl(char *url, char *description) {
-  char cmd[1024];
-
-  snprintf(cmd, 1045,
-           "youtube-dl '%s' --get-description --skip-download --no-playlist",
-           url);
-
-  FILE *fp = popen(cmd, "r");
-
-  char line[1024];
-  unsigned int size = 0;
-  while (fgets(line, 1024, fp)) {
-    size += strlen(line);
-    strcat(description, line);
-  }
-
-  fclose(fp);
-}
-
 int parse_description_timestamps(char *description,
                                  insert_timestamp_callback insert_timestamp) {
-  char *buf = description;
-
   char *saveptr1, *saveptr2;
 
   while (1) {
@@ -370,7 +280,7 @@ int parse_description_timestamps(char *description,
 
     char line_buffer[1024];
 
-    strncpy(line_buffer, line, 1024);
+    strncpy(line_buffer, line, 1023);
 
     char *word = strtok_r(line, " ", &saveptr2);
 
@@ -380,4 +290,6 @@ int parse_description_timestamps(char *description,
 
     description = NULL;
   }
+
+  return 0;
 }
