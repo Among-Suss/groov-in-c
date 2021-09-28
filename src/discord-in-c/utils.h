@@ -1,10 +1,10 @@
 #include "log.h"
 
 // Logging
-#define printf(message, args...) log_print_out(message, ##args)
-#define fprintf(channel, message, args...)                                     \
-  channel == stdout ? log_print_out(message, ##args)                           \
-                    : log_print_err(message, ##args)
+#define printf(...) log_print_out(__VA_ARGS__)
+#define fprintf(channel, ...)                                         \
+  channel == stdout ? log_print_out(__VA_ARGS__)                      \
+                    : log_print_err(__VA_ARGS__)
 
 // Env
 #define DEBUG getenv("DEBUG")

@@ -1,8 +1,15 @@
-.github/*
-.vscode/*
+# Folders
+
+.github
+.vscode
+src/tests
+
+# File types
 **/*.pyc
-
-
 **/*.log
-
+**/*.out
 *.md
+
+# Specific files
+.clang-format
+

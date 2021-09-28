@@ -7,8 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
-
+  test:
+    name: Checks
     runs-on: ubuntu-latest
 
     steps:

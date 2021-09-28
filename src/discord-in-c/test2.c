@@ -56,7 +56,7 @@ void simple_send_file(discord_t *dis, char *file, char *filename,
   FILE *fp = fopen(file, "rb");
   fseek(fp, 0, SEEK_END);
   long length = ftell(fp);
-  size_t text_length;
+  size_t text_length = 0;
   fseek(fp, 0, SEEK_SET);
 
   char *text = malloc(length + 10);
@@ -65,6 +65,7 @@ void simple_send_file(discord_t *dis, char *file, char *filename,
   }
   text[text_length] = '\0';
   fclose(fp);
+  
 
   ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
                 DISCORD_PORT, strlen(DISCORD_PORT));
@@ -337,9 +338,9 @@ void *threaded_play_cmd(void *ptr) {
 
       char *title = malloc(sizeof(char) * 1024);
       for (int i = 0; i < RETRIES; i++) {
-        playlist_err =
-            fetch_playlist(pobj->content, start_index + 1, pobj->vgt->media,
-                           insert_queue_ytb_partial, title);
+        playlist_err = fetch_playlist(
+            pobj->content, start_index + 1, pobj->vgt->media,
+            (insert_partial_ytp_callback_f)insert_queue_ytb_partial, title);
 
         // If pass or KEY_ERR (for invalid urls)
         if (playlist_err == 0 || playlist_err == 4) {
@@ -1379,12 +1380,13 @@ int main(int argc, char **argv) {
 
   // Levels:
   // 0=LOG_TRACE 1=LOG_DEBUG 2=LOG_INFO 3=LOG_WARN 4=LOG_ERROR 5=LOG_FATAL
-  char *log_level = getenv("LOG_LEVEL");
-  if (log_level) {
-    log_set_level(atoi(log_level));
-  } else {
-    log_set_level(DEFAULT_LOG_LEVEL);
+  char *log_level_env = getenv("LOG_LEVEL");
+  int log_level = DEFAULT_LOG_LEVEL;
+  if (log_level_env) {
+    log_level = atoi(log_level_env);
   }
+
+  log_set_level(log_level);
 
   FILE *fp = fopen(LOG_FILE, "w");
   log_add_fp(fp, log_level);
