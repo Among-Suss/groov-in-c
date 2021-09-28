@@ -1,3 +1,16 @@
+/* 
+    test.h
+
+    A tiny testing module for c.
+
+    Usage:
+      - Include this file in your test file
+      - Insert the "INIT_SUITE" macro in the file scope (outside of functions)
+      - In the main function, use the various assert functions to test your cases
+        - assert(expected, actual, test message, formating...);
+      - At the end of your main function, insert the "END_SUITE" macro without returning any values
+*/
+
 #include <stdarg.h>
 
 #define RED "\x1b[31m"

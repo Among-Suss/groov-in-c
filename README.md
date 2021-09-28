@@ -175,7 +175,7 @@ You can just run this repository through docker if that's your thing. This progr
 #### Ubuntu and Debian
 1. Install all the build and runtime dependencies
 ```
-sudo apt-get install make gcc libssl-dev libsodium-dev libopus-dev libogg-dev ffmpeg python3-pip
+sudo apt-get install make gcc libssl-dev libsodium-dev libopus-dev libogg-dev libcurl4-openssl-dev ffmpeg python3-pip
 ```
 
 2. Install youtube-dl with pip since Ubuntu's version is outdated
@@ -208,5 +208,5 @@ Make sure to be in the directory groov-in-c/src/discord-in-c
 ```
 TOKEN="mytoken" BOT_NAME="my-groov-in-c" ./test2
 ```
-
+For more details on development, see [DOCUMENTATION.md](DOCUMENTATION.md)
 ## 
