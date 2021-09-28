@@ -20,7 +20,7 @@ void mock_insert(void *media, char *id, char *title, char *duration,
 
 int timestamp_count = 0;
 void mock_ts_insert(int length, char *label) {
-  //printf("[%d] %s\n", length, label);
+  // printf("[%d] %s\n", length, label);
   timestamp_count++;
 }
 
@@ -63,7 +63,6 @@ int main(int argc, char **argv) {
   char desc[6000] = MOCK_DESCRIPTION;
   parse_description_timestamps(desc, mock_ts_insert);
   assert(3, timestamp_count, "Parse timestamp should find 3 timestamps");
-
 
   END_SUITE
 }
