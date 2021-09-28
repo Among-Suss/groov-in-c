@@ -1,4 +1,5 @@
 # groov-in-c
+![Docker Build](https://github.com/Among-Suss/groov-in-c/actions/workflows/docker-build.yml/badge.svg)
 ![Parser Checks](https://github.com/Among-Suss/groov-in-c/actions/workflows/youtube-checks.yml/badge.svg)
 
 An easy to self-host Discord music bot written in C
