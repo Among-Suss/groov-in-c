@@ -23,15 +23,23 @@ typedef void (*insert_partial_ytp_callback)(void *media, char *id,
                                                        char *duration,
                                                        int length);
 
+typedef void (*insert_timestamp_callback)(int time, char *text);
+
 /* ----------------------------- Main functions ----------------------------- */
 
 /**
- * Fetches playlist and inserts into media list through callback.
+ * @brief Fetches playlist and inserts into media list through callback.
+ * Error codes:
+ *  1: Curl error,
+ *  2: Trim error,
+ *  3: Json lengthText key error,
+ *  4: Json playlist key error (likely due to invalid playlist ID)
+
  * @param url Video URL
  * @param start Start index
  * @param media Media object for callback
  * @param callback Insert partial youtube page callback
- * @param title Return pointer for playlist title. Must be freed
+ * @param title Pointer to buffer where the title will be stored. Should contain atleast 200 characters
  * @return Error code
  */
 int fetch_playlist(char *url, int start, void *media,

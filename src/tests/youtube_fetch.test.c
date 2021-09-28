@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
 
   int retries = 0;
 
-  char *title = malloc(sizeof(char) * 1024);
+  char title[1024];
 
   int url_err = 1;
   for (int i = 0; i < RETRIES; i++) {
@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  assert(0, url_err, "Regular URL should succeed: %d tries", retries + 1);
+  assert(0, url_err, "Regular URL should succeed: %d attempt(s)", retries + 1);
   assert_str("weird jap music", title, "Regular URL should have correct title");
 
   int url_page_err = 1;
@@ -44,7 +44,8 @@ int main(int argc, char **argv) {
       break;
     }
   }
-  assert(0, url_page_err, "Page URL should succeed: %d tries", retries + 1);
+  assert(0, url_page_err, "Page URL should succeed: %d attempt(s)",
+         retries + 1);
   assert_str("Jazz", title, "Page URL should have correct title");
 
   int bad_url_err = fetch_playlist(URL_BAD, 0, NULL, mock_insert, title);
