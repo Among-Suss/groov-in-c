@@ -346,7 +346,7 @@ void *threaded_play_cmd(void *ptr) {
           break;
         }
       }
-      int new_song_count = pobj->vgt->media->song_queue.size - 1 - song_count;
+      int new_song_count = pobj->vgt->media->song_queue.size - song_count;
 
       char message[1024];
 
