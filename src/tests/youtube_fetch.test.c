@@ -9,10 +9,19 @@
 #define URL_BAD                                                                \
   "https://www.youtube.com/watch?v=01skyPMeeoc&list=PL8D03A4C0FFBBE36"
 
+#define MOCK_DESCRIPTION                                                       \
+  "Lorem ipsum\n\n0:00 - Test1\n12:12 - Test2\n1:12:21 - Test3\n\nEnd\n"
+
 #define RETRIES 10
 
 void mock_insert(void *media, char *id, char *title, char *duration,
                  int length) {
+}
+
+int timestamp_count = 0;
+void mock_ts_insert(int length, char *label) {
+  //printf("[%d] %s\n", length, label);
+  timestamp_count++;
 }
 
 INIT_SUITE
@@ -51,7 +60,10 @@ int main(int argc, char **argv) {
   int bad_url_err = fetch_playlist(URL_BAD, 0, NULL, mock_insert, title);
   assert(4, bad_url_err, "Bad URL should fail");
 
-  free(title);
+  char desc[6000] = MOCK_DESCRIPTION;
+  parse_description_timestamps(desc, mock_ts_insert);
+  assert(3, timestamp_count, "Parse timestamp should find 3 timestamps");
+
 
   END_SUITE
 }

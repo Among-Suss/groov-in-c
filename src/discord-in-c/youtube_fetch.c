@@ -103,16 +103,18 @@ int trim_between(char *restrict text, char const *start, char const *end) {
 }
 
 int parse_time(char *const time) {
-  int h, m, s;
+  int h = -1, m = -1, s = -1, ret;
   if (strlen(time) <= 5) {
-    sscanf(time, "%d:%d", &m, &s);
-    return m * 60 + s;
+    int ret = sscanf(time, "%d:%2d", &m, &s);
+    h = 0;
   } else {
-    sscanf(time, "%d:%d:%d", &h, &m, &s);
-    return h * 3600 + m * 60 + s;
+    int ret = sscanf(time, "%d:%d:%2d", &h, &m, &s);
+  }
+  if (h == -1 || m == -1 || s == -1 || !isdigit(time[strlen(time) - 1])) {
+    return -1;
   }
 
-  return 0;
+  return h * 3600 + m * 60 + s;
 }
 
 // You must free the result if result is non-NULL.
@@ -305,14 +307,17 @@ int fetch_playlist(char *url, int start, void *media,
   }
 
 PLAYLIST_FETCH_CLEANUP:
-  if (video_json_list)
+  if (video_json_list != NULL)
     cJSON_Delete(video_json_list);
-  if (html)
+  if (html != NULL)
     free(html);
 
   return ret;
 }
 
+/*
+ * Unused
+ */
 int fetch_description(char *url, char **description) {
   // Fetch html
   char *html;
@@ -332,6 +337,47 @@ int fetch_description(char *url, char **description) {
   return 0;
 }
 
-int parse_description_timestamps(char *description) {
-  // TODO Implement timestamp parsing
+int fetch_description_youtube_dl(char *url, char *description) {
+  char cmd[1024];
+
+  snprintf(cmd, 1045,
+           "youtube-dl '%s' --get-description --skip-download --no-playlist",
+           url);
+
+  FILE *fp = popen(cmd, "r");
+
+  char line[1024];
+  unsigned int size = 0;
+  while (fgets(line, 1024, fp)) {
+    size += strlen(line);
+    strcat(description, line);
+  }
+
+  fclose(fp);
+}
+
+int parse_description_timestamps(char *description,
+                                 insert_timestamp_callback insert_timestamp) {
+  char *buf = description;
+
+  char *saveptr1, *saveptr2;
+
+  while (1) {
+    char *line = strtok_r(description, "\n", &saveptr1);
+
+    if (line == NULL)
+      break;
+
+    char line_buffer[1024];
+
+    strncpy(line_buffer, line, 1024);
+
+    char *word = strtok_r(line, " ", &saveptr2);
+
+    if (parse_time(word) != -1) {
+      insert_timestamp(parse_time(word), line_buffer);
+    }
+
+    description = NULL;
+  }
 }

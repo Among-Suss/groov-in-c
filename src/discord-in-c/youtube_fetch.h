@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <curl/curl.h>
 #include "cJSON.h"
 
@@ -48,6 +49,10 @@ int fetch_playlist(char *url, int start, void *media,
 /**
  * Fetches description and escapes newlines and &
  * @param url Video URL
- * @param description Double pointer for return description. Must be freed
+ * @param description Pointer to buffer where the description will be stored. Should
+ * contain atleast 6000 characters
  */
-int fetch_description(char *url, char **description);
+int fetch_description_youtube_dl(char *url, char *description);
+
+int parse_description_timestamps(char *description,
+                                 insert_timestamp_callback insert_timesamp);

@@ -38,7 +38,8 @@ enum { LOG_TRACE, LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR, LOG_FATAL };
 #define log_error(...) log_log(LOG_ERROR, __FILE__, __LINE__, 1, __VA_ARGS__)
 #define log_fatal(...) log_log(LOG_FATAL, __FILE__, __LINE__, 1, __VA_ARGS__)
 
-#define log_print(...) log_log(LOG_INFO, __FILE__, __LINE__, 0, __VA_ARGS__)
+#define log_print_out(...) log_log(LOG_TRACE, __FILE__, __LINE__, 0, __VA_ARGS__)
+#define log_print_err(...) log_log(LOG_WARN, __FILE__, __LINE__, 0, __VA_ARGS__)
 
 const char *log_level_string(int level);
 void log_set_lock(log_LockFn fn, void *udata);
