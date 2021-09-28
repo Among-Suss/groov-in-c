@@ -30,6 +30,10 @@
         "valarray": "c",
         "sbuf.structs.h": "c",
         "cstring": "c",
-        "discord.structs.h": "c"
+        "discord.structs.h": "c",
+        "easy_fetch.c": "c",
+        "easy_fetch.h": "c",
+        "youtube_fetch.h": "c",
+        "*.tcc": "c"
     }
 }

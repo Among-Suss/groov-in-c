@@ -59,3 +59,5 @@ test2
 
 *.log
 .env
+
+**/*.test

@@ -56,7 +56,8 @@ media_player_t *modify_player(media_player_t *media, char *key_str, char *ssrc_s
 
 int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_title, int return_title_len, int index);
 
-void insert_queue_ytb_partial(media_player_t *media, cJSON *video_json);
+void insert_queue_ytb_partial(media_player_t *media, char *id, char *title,
+                              char *duration, int length);
 
 void complete_youtube_object_fields(youtube_page_object_t *ytobjptr);
 

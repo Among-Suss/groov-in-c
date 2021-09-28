@@ -1,4 +1,6 @@
 # groov-in-c
+![Parser Checks](https://github.com/Among-Suss/groov-in-c/actions/workflows/youtube-checks.yml/badge.svg)
+
 An easy to self-host Discord music bot written in C
 
 ## Table of contents
