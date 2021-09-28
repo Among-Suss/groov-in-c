@@ -11,15 +11,12 @@ struct MemoryStruct {
   size_t size;
 };
 
-static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb,
-                                  void *userp);
-
 /* --------------------------------- Helpers -------------------------------- */
 int fetch_get(char *url, char **raw);
 
 int trim_between(char *text, char const *start, char const *end);
 
-typedef void (*insert_partial_ytp_callback)(void *media, char *id,
+typedef void (*insert_partial_ytp_callback_f)(void *media, char *id,
                                                        char *title,
                                                        char *duration,
                                                        int length);
@@ -44,7 +41,7 @@ typedef void (*insert_timestamp_callback)(int time, char *text);
  * @return Error code
  */
 int fetch_playlist(char *url, int start, void *media,
-                   insert_partial_ytp_callback callback, char *title);
+                   insert_partial_ytp_callback_f callback, char *title);
 
 /**
  * Fetches description and escapes newlines and &

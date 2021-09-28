@@ -150,7 +150,7 @@ int parse_time(char *const time) {
 #define KEY_ERR 4 // Happens with invalid playlist IDs
 
 int fetch_playlist(char *url, int start, void *media,
-                   insert_partial_ytp_callback callback, char *title) {
+                   insert_partial_ytp_callback_f callback, char *title) {
 
   // Fetch html
   char *html = NULL;
