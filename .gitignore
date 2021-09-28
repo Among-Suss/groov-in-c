@@ -52,6 +52,9 @@ dkms.conf
 # more stuff
 # add here:
 
+#secure files
+*.secure
+
 test
 test2
 
