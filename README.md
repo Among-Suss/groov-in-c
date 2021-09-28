@@ -160,7 +160,7 @@ More configurations may be added in the future.
 **A**: For some reason, the Discord API will randomly disconnect the bot, which can take a moment to reconnect.
 
 ## Build Instructions
-You can just run this repository through docker if that's your thing. This program only supports linux, but it is possible to get working on Windows using cygwin with some modification (not covered here).
+You can just run this repository through docker if that's your thing. This program only supports linux, although it should run perfectly fine through docker on windows. It may be possible to get working on Windows using cygwin with some modification (not covered here, you will need to make sure all code is POSIX compliant).
 
 ### Environment Variables
 | Name | Description | Default |
