@@ -30,6 +30,18 @@
 | cJSON.c | JSON parser in C |
 | log.c | A simple logging library implemented in C99 |
 
+## Building and Running in VS Code
+For those who want to automate the build and run process, you can use the "make and run" task in VS code. This task automates the building and running process by reading variables from an `.env` file. To use it, just create a `.env` file in the root directory, and add key pair values delimited by an equal sign.
+
+Example:
+```sh
+TOKEN=123456789qwerty
+BOT_PREFIX=!
+BOT_NAME=groov-in-c
+DEBUG=1
+LOG_LEVEL=0
+```
+
 ## Logging
 
 We use [rxi/log.c](https://github.com/rxi/log.c) for logging.
