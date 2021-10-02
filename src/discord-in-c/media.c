@@ -529,12 +529,17 @@ void play_youtube_url(char *youtube_link, int time_offset, char *key_str, char *
 
   fprintf(stdout, "Running ffmpeg...\n");
 
-  pid_t pid;
+  char *log_level_env = getenv("LOG_LEVEL");
+
+      pid_t pid;
   if ((pid = fork()) == 0) {
     char *new_argv[50] = {"ffmpeg",
 
                           "-loglevel",
-                          atoi(getenv("LOG_LEVEL")) > 0 ? "quiet" : "info",
+                          atoi(log_level_env
+                               ? log_level_env : 0) > 0
+                              ? "quiet"
+                              : "info",
 
                           "-ss",
                           star_time_str,
