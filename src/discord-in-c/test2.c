@@ -860,7 +860,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
 
   for (int x = 0; x < QUEUELENGTH * 2; x += 2) {
     int written_index = queue_page * QUEUELENGTH + (x / 2) + 1;
-    if (written_index == 1) {
+    if (written_index == 1 && title_arr[x]) {
       snprintf(temp_message, sizeof(temp_message), "```Now Playing: %.40s",
                title_arr[x]);
       if (strlen(title_arr[x]) > 40) {
