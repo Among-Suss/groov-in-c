@@ -373,11 +373,11 @@ void *threaded_play_cmd(void *ptr) {
 
       int song_count = pobj->vgt->media->song_queue.size - 1;
 
-      char *title = malloc(sizeof(char) * 1024);
+      char *playlist_title = malloc(sizeof(char) * 1024);
       for (int i = 0; i < RETRIES; i++) {
         playlist_err = fetch_playlist(
             pobj->content, start_index + 1, pobj->vgt->media,
-            (insert_partial_ytp_callback_f)insert_queue_ytb_partial, title);
+            (insert_partial_ytp_callback_f)insert_queue_ytb_partial, playlist_title);
 
         // If pass or KEY_ERR (for invalid urls)
         if (playlist_err == 0 || playlist_err == 4) {
@@ -393,11 +393,11 @@ void *threaded_play_cmd(void *ptr) {
         snprintf(message, 1024, "Invalid playlist! Is the list private?");
       } else {
         snprintf(message, 1024, "Queued `%d` songs from `%s`", new_song_count,
-                 title);
+                 playlist_title);
       }
 
 
-      free(title);
+      free(playlist_title);
 
       simple_send_msg(pobj->dis, message, pobj->textchannelid);
     }
@@ -420,7 +420,14 @@ void *threaded_play_cmd(void *ptr) {
 
     if (!(queue_len == 0 || (queue_len == 1 && skipper_val > 0))) {
       char message[300];
-      snprintf(message, sizeof(message), "Queued song: %s", title);
+
+      // escape out the text for json sending
+      char text3[sizeof(title)];
+      char text4[sizeof(title)];
+      escape_http_newline(title, sizeof(title), text3, sizeof(title));
+      escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
+
+      snprintf(message, sizeof(message), "Queued song: %s", text4);
       simple_send_msg(pobj->dis, message, pobj->textchannelid);
     }
   } else if (!queued_playlist) {
@@ -1087,6 +1094,7 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
 
   char message[9500];
+  message[0] = 0;
   if (vgt->media && vgt->media->playing) {
     log_debug("Sending timestamps");
     youtube_page_object_t ytpobj;
@@ -1116,6 +1124,7 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
     parse_description_timestamps(text2, timestamp_json_arr);
 
     char message_body[6000];
+    message_body[0] = 0;
 
     for (int i = 0; i < cJSON_GetArraySize(timestamp_json_arr) - 1;
          i++) {
@@ -1290,7 +1299,7 @@ void seek_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   int seek_time = -1;
   char label[1024];
 
-  if (timestamp_no >= cJSON_GetArraySize(timestamp_json_arr)) {
+  if (timestamp_no >= cJSON_GetArraySize(timestamp_json_arr) || timestamp_no <= 0) {
 
     simple_send_msg(dis, "Timestamp out of range!", textchannelid);
     cJSON_Delete(timestamp_json_arr);
@@ -1457,8 +1466,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
                  !strncasecmp(content + 1, "skip timestamp", 14)) {
         skip_timestamp_command(vgt, dis, &uobj, guildid, textchannelid, content,
                                wrong_vc, has_user, is_dj);
-      } else if (!strncasecmp(content + 1, "seekt", 5) ||
-                 !strncasecmp(content + 1, "seek timestamp", 14)) {
+      } else if (!strncasecmp(content + 1, "seekt", 5)) {
         seek_timestamp_command(vgt, dis, &uobj, guildid, textchannelid, content,
                                wrong_vc, has_user, is_dj);
       } else if (!strncasecmp(content + 1, "skip", 4)) {
