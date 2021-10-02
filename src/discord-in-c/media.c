@@ -533,47 +533,45 @@ void play_youtube_url(char *youtube_link, int time_offset, char *key_str, char *
 
       pid_t pid;
   if ((pid = fork()) == 0) {
-    char *new_argv[50] = {"ffmpeg",
+    char *new_argv[50] = {
+        "ffmpeg",
 
-                          "-loglevel",
-                          atoi(log_level_env
-                               ? log_level_env : 0) > 0
-                              ? "quiet"
-                              : "info",
+        "-loglevel",
+        (log_level_env ? atoi(log_level_env) : 0 > 0) ? "quiet" : "info",
 
-                          "-ss",
-                          star_time_str,
+        "-ss",
+        star_time_str,
 
-                          "-i",
-                          url,
+        "-i",
+        url,
 
-                          "-c:a",
-                          "libopus",
+        "-c:a",
+        "libopus",
 
-                          "-b:a",
-                          "64k",
+        "-b:a",
+        "64k",
 
-                          "-vbr",
-                          "off",
+        "-vbr",
+        "off",
 
-                          "-compression_level",
-                          "10",
+        "-compression_level",
+        "10",
 
-                          "-frame_duration",
-                          "20",
+        "-frame_duration",
+        "20",
 
-                          "-application",
-                          "audio",
+        "-application",
+        "audio",
 
-                          "-f",
-                          "opus",
+        "-f",
+        "opus",
 
-                          "-flush_packets",
-                          "1",
+        "-flush_packets",
+        "1",
 
-                          "-y",
-                          cache_file_unique_name,
-                          0};
+        "-y",
+        cache_file_unique_name,
+        0};
 
     if (execvp(new_argv[0], new_argv) < 0) {
       fprintf(stderr, "UNIX EXECVE ERROR\n");
