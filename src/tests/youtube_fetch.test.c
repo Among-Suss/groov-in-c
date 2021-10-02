@@ -19,10 +19,6 @@ void mock_insert(void *media, char *id, char *title, char *duration,
 }
 
 int timestamp_count = 0;
-void mock_ts_insert(int length, char *label) {
-  // printf("[%d] %s\n", length, label);
-  timestamp_count++;
-}
 
 INIT_SUITE
 
@@ -61,8 +57,12 @@ int main(int argc, char **argv) {
   assert(4, bad_url_err, "Bad URL should fail");
 
   char desc[6000] = MOCK_DESCRIPTION;
-  parse_description_timestamps(desc, mock_ts_insert);
-  assert(3, timestamp_count, "Parse timestamp should find 3 timestamps");
+
+  cJSON *ts_arr = cJSON_CreateArray();
+  parse_description_timestamps(desc, ts_arr);
+  assert(3, cJSON_GetArraySize(ts_arr), "Parse timestamp should find 3 timestamps");
+
+  cJSON_Delete(ts_arr);
 
   END_SUITE
 }
