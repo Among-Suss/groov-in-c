@@ -21,8 +21,6 @@ typedef void (*insert_partial_ytp_callback_f)(void *media, char *id,
                                                        char *duration,
                                                        int length);
 
-typedef void (*insert_timestamp_callback)(int time, char *text);
-
 /* ----------------------------- Main functions ----------------------------- */
 
 /**
@@ -51,5 +49,11 @@ int fetch_playlist(char *url, int start, void *media,
  */
 int fetch_description_youtube_dl(char *url, char *description);
 
-int parse_description_timestamps(char *description,
-                                 insert_timestamp_callback insert_timesamp);
+/**
+ * Parses a non-newline escaped description and returns a JSON list of
+ * timestamps and labels
+ * @param description
+ * @param timestamps_arr An empty cJSON array. Returns a list of objects in the
+ * format [{"timestamp": int, "label": str}]. Must be freed with cJSON_Delete
+ */
+int parse_description_timestamps(char *description, cJSON *timestamps_arr);

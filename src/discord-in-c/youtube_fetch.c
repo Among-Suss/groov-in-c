@@ -268,8 +268,7 @@ PLAYLIST_FETCH_CLEANUP:
   return ret;
 }
 
-int parse_description_timestamps(char *description,
-                                 insert_timestamp_callback insert_timestamp) {
+int parse_description_timestamps(char *description, cJSON *timestamp_arr) {
   char *saveptr1, *saveptr2;
 
   while (1) {
@@ -278,14 +277,19 @@ int parse_description_timestamps(char *description,
     if (line == NULL)
       break;
 
-    char line_buffer[1024];
+    char timestamp_text[1024];
 
-    strncpy(line_buffer, line, 1023);
+    strncpy(timestamp_text, line, 1023);
 
-    char *word = strtok_r(line, " ", &saveptr2);
+    char *timestamp_word = strtok_r(line, " ", &saveptr2);
 
-    if (parse_time(word) != -1) {
-      insert_timestamp(parse_time(word), line_buffer);
+    if (parse_time(timestamp_word) != -1) {
+      cJSON *item = cJSON_CreateObject();
+
+      cJSON_AddItemToObject(item, "label", cJSON_CreateString(timestamp_text));
+      cJSON_AddItemToObject(item, "timestamp", cJSON_CreateNumber(parse_time(timestamp_word)));
+
+      cJSON_AddItemToArray(timestamp_arr, item);
     }
 
     description = NULL;

@@ -7,4 +7,4 @@
                     : log_print_err(__VA_ARGS__)
 
 // Env
-#define DEBUG getenv("DEBUG")
+#define DEBUG getenv("DEBUG") == NULL
