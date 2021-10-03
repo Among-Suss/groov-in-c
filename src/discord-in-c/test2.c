@@ -852,6 +852,12 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
   char temp_message[300];
   int queue_end = 0;
   int num_of_songs = vgt->media->song_queue.size - 1;
+  long int num_of_queue_pages = (long int)ceil(((double)num_of_songs) / ((double)QUEUELENGTH));
+
+  if (num_of_songs < 0) {
+    num_of_songs = 0;
+  }
+
 
   for (int x = 0; x < QUEUELENGTH * 2; x += 2) {
     int written_index = queue_page * QUEUELENGTH + (x / 2) + 1;
@@ -888,10 +894,15 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
              "\\n----End of Queue----\\n");
     strcat(inner_message, temp_message);
   }
+
+  if (num_of_songs > 0) {
+    queue_page = queue_page + 1;
+  }
+
   snprintf(temp_message, sizeof(temp_message),
            "\\n Queue Page %ld of %ld. \\n Total %d songs in queue.",
-           queue_page + 1,
-           (long int)ceil(((double)num_of_songs) / ((double)QUEUELENGTH)),
+           queue_page,
+           num_of_queue_pages,
            num_of_songs);
   strcat(inner_message, temp_message);
 
