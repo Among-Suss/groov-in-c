@@ -2,7 +2,9 @@
 ![Docker Build](https://github.com/Among-Suss/groov-in-c/actions/workflows/docker-build.yml/badge.svg)
 ![Parser Checks](https://github.com/Among-Suss/groov-in-c/actions/workflows/youtube-checks.yml/badge.svg)
 
-An easy to self-host Discord music bot written in C
+An easy to host Discord music bot written in C.
+
+Can be easily hosted for free with any extra server or database requirements, even by those without any technical knowledge.
 
 ## Table of contents
 
@@ -21,22 +23,21 @@ Prerequisites:
 
 Note: By default the bot will only run for 22 days a month. Check out the first question in the [FAQ](#faq) if you want it to always be online.
 
-### 1. Add to Heroku
+### 1. Deploy to Heroku
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Among-Suss/groov-in-c/tree/main)
 
-### 2. Creating and Deploy App
  - Enter your token and a unique bot name (the name is only for options; it won't affect the bot's display name)
  - The BOT_NAME field should NOT contain any spaces. for example: my-groov-in-c-bot
 
-### 3. Activate Bot
+### 2. Activate Bot
 1. Go to the app through the Heroku Dashboard.
 2. Go to the **Resources Tab**.
 3. Under the **Free Dynos** section, click on the pencil icon, turn on the switch (it should be on the right side), and click **Confirm**. 
     * *If it says "no worker", wait a couple minutes then refresh the page.*
 4. Your Bot should be online!
 
-### 4. Add to server
+### 3. Add to server
 
 1. Go to your **Discord Developer Console** and find your bot application.
 2. From the **OAuth2** tab, check *bot* under scopes and the following permissions under **Bot Permissions**.
@@ -151,7 +152,7 @@ More configurations may be added in the future.
 
 **Q**: Why is the play command always failing?
 
-**A**: If the play command fails everytime, try and restart the bot by turning the dyno on and off (see [bot activation](#3-activate-bot)).
+**A**: If the play command fails everytime, try and restart the bot by turning the dyno on and off (see [bot activation](#2-activate-bot)).
 
 ##
 
