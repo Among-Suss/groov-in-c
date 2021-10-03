@@ -64,23 +64,23 @@ sem_t play_cmd_mutex;
 /*                              HELPER FUNCTIONS */
 /* --------------------------------------------------------------------------*/
 
-  /* Simple sending message to discord
-   *
-   *
-   *
-   */
-  void simple_send_msg(discord_t *dis, char *text, char *textchannelid) {
-    ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                  DISCORD_PORT, strlen(DISCORD_PORT));
-    char message[4000];
-    snprintf(message, 4000, DISCORD_API_POST_BODY_MSG_SIMPLE, text);
-    char header[2000];
-    snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken,
-             (int)strlen(message));
-    char buffer[5000];
-    snprintf(buffer, 5000, "%s\r\n\r\n%s\r\n\r\n", header, message);
-    send_raw(dis->https_api_ssl, buffer, strlen(buffer));
-  }
+/* Simple sending message to discord
+ *
+ *
+ *
+ */
+void simple_send_msg(discord_t *dis, char *text, char *textchannelid) {
+  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                DISCORD_PORT, strlen(DISCORD_PORT));
+  char message[4000];
+  snprintf(message, 4000, DISCORD_API_POST_BODY_MSG_SIMPLE, text);
+  char header[2000];
+  snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken,
+           (int)strlen(message));
+  char buffer[5000];
+  snprintf(buffer, 5000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+}
 
 /**
  * Simple sending a file
@@ -102,7 +102,6 @@ void simple_send_file(discord_t *dis, char *file, char *filename,
   }
   text[text_length] = '\0';
   fclose(fp);
-  
 
   ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
                 DISCORD_PORT, strlen(DISCORD_PORT));
@@ -377,7 +376,8 @@ void *threaded_play_cmd(void *ptr) {
       for (int i = 0; i < RETRIES; i++) {
         playlist_err = fetch_playlist(
             pobj->content, start_index + 1, pobj->vgt->media,
-            (insert_partial_ytp_callback_f)insert_queue_ytb_partial, playlist_title);
+            (insert_partial_ytp_callback_f)insert_queue_ytb_partial,
+            playlist_title);
 
         // If pass or KEY_ERR (for invalid urls)
         if (playlist_err == 0 || playlist_err == 4) {
@@ -395,7 +395,6 @@ void *threaded_play_cmd(void *ptr) {
         snprintf(message, 1024, "Queued `%d` songs from `%s`", new_song_count,
                  playlist_title);
       }
-
 
       free(playlist_title);
 
@@ -638,8 +637,6 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
     return;
   }
 
-
-
   // wait for song mutex
   sem_wait(&(vgt->media->insert_song_mutex));
 
@@ -834,7 +831,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
 
   char message[9500];
-  #define QUEUELENGTH 10
+#define QUEUELENGTH 10
 
   long int queue_page = strtol(content + 6, NULL, 10);
   if (queue_page == 0) {
@@ -884,8 +881,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
     }
   }
   if (queue_end) {
-    snprintf(temp_message, sizeof(temp_message),
-             "\\n----End of Queue----\\n");
+    snprintf(temp_message, sizeof(temp_message), "\\n----End of Queue----\\n");
     strcat(inner_message, temp_message);
   }
   snprintf(temp_message, sizeof(temp_message),
@@ -904,7 +900,6 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
   snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,
            "Song Queue:", "Up next on the playlist...", inner_message,
            "To see more songs, use \\\"queue [page number]\\\"");
-  
 
   // create final message
   char header[2000];
@@ -1126,8 +1121,7 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
     char message_body[6000];
     message_body[0] = 0;
 
-    for (int i = 0; i < cJSON_GetArraySize(timestamp_json_arr) - 1;
-         i++) {
+    for (int i = 0; i < cJSON_GetArraySize(timestamp_json_arr) - 1; i++) {
       cJSON *item = cJSON_GetArrayItem(timestamp_json_arr, i);
       char *label_json =
           cJSON_GetStringValue(cJSON_GetObjectItem(item, "label"));
@@ -1137,7 +1131,7 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
         break;
 
       char line_buf[1500];
-      
+
       // todo split timestapm and label
 
       snprintf(line_buf, 1500, "\\n**%d.** %s", i + 1, label_json);
@@ -1228,7 +1222,8 @@ void skip_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
 
       char *cur_label = cJSON_GetStringValue(cJSON_GetObjectItem(
           cJSON_GetArrayItem(timestamp_json_arr, i), "label"));
-      snprintf(label, 1023, "Skipped to timestamp #%d: **%s**", i + 1, cur_label);
+      snprintf(label, 1023, "Skipped to timestamp #%d: **%s**", i + 1,
+               cur_label);
       break;
     }
   }
@@ -1273,7 +1268,10 @@ void seek_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   int timestamp_no = atoi(timestamp_str);
 
   if (timestamp_no == 0) {
-    simple_send_msg(dis, "Please type a number starting from 1! Use the `timestamps` command to check available timestamps.", textchannelid);
+    simple_send_msg(dis,
+                    "Please type a number starting from 1! Use the "
+                    "`timestamps` command to check available timestamps.",
+                    textchannelid);
     return;
   }
 
@@ -1299,7 +1297,8 @@ void seek_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   int seek_time = -1;
   char label[1024];
 
-  if (timestamp_no >= cJSON_GetArraySize(timestamp_json_arr) || timestamp_no <= 0) {
+  if (timestamp_no >= cJSON_GetArraySize(timestamp_json_arr) ||
+      timestamp_no <= 0) {
 
     simple_send_msg(dis, "Timestamp out of range!", textchannelid);
     cJSON_Delete(timestamp_json_arr);
@@ -1308,9 +1307,9 @@ void seek_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   }
 
   seek_time = (int)cJSON_GetNumberValue(cJSON_GetObjectItem(
-      cJSON_GetArrayItem(timestamp_json_arr, timestamp_no-1), "timestamp"));
+      cJSON_GetArrayItem(timestamp_json_arr, timestamp_no - 1), "timestamp"));
   char *cur_label = cJSON_GetStringValue(cJSON_GetObjectItem(
-      cJSON_GetArrayItem(timestamp_json_arr, timestamp_no-1), "label"));
+      cJSON_GetArrayItem(timestamp_json_arr, timestamp_no - 1), "label"));
 
   snprintf(label, 1023, "Seeked timestamp #%d: **%s**", timestamp_no,
            cur_label);
@@ -1328,12 +1327,49 @@ void seek_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   simple_send_msg(dis, label, textchannelid);
 }
 
+void help_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
+                  char *guildid, char *textchannelid, int wrong_vc,
+                  int has_user) {
+
+  char message[9500];
+
+  snprintf(
+      message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "Help:", "groov-in-c",
+      "Play music:                 `-p [youtube link or text to search youtube]`\\n\
+      Play next (cut queue):      `-pn [youtube link or text]`\\n\
+      Pause music:                `-pause`\\n\
+      Resume after pause:         `-play`\\n\
+      Skip music:                 `-skip`\\n\
+      Show queue:                 `-queue`         (or `-queue [page number]`)\\n\
+      Show current song:          `-np`\\n\
+      Delete entry from queue:    `-r [entry number in queue]`\\n\
+      Show youtube description:   `-desc`\\n\
+      Make the bot leave:         `-leave`\\n\
+      Clear queue:                `-clear`\\n\
+      Shuffle queue:              `-shuffle`\\n\
+      Seek music:                 `-seek [hour]:[mins]:[secs]`\\n\
+          Example: `-seek 3:20` (goes to 3 minutes 20 seconds in the song)", "");
+  // }
+
+  // finalize message into sendable format
+  char header[2000];
+  snprintf(header, 2000, DISCORD_API_POST_MSG, textchannelid, bottoken,
+           (int)strlen(message));
+  char buffer[13000];
+  snprintf(buffer, 13000, "%s\r\n\r\n%s\r\n\r\n", header, message);
+
+  // send the message using ssl
+  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                DISCORD_PORT, strlen(DISCORD_PORT));
+  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+}
+
 /* ----------------------------- HELPER COMMANDS ---------------------------- */
 
 // Sends the log file
 void log_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
-                     char *guildid, char *textchannelid, int wrong_vc,
-                     int has_user, int is_dj, char *file) {
+                 char *guildid, char *textchannelid, int wrong_vc, int has_user,
+                 int is_dj, char *file) {
   if (DEBUG) {
     simple_send_file(dis, file, file, textchannelid);
   } else {
@@ -1514,6 +1550,9 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       } else if (!strncasecmp(content + 1, "timestamps", 10)) {
         timestamps_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
                            has_user, is_dj);
+      } else if (!strncasecmp(content + 1, "help", 4)) {
+        help_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
+                     has_user);
       }
     }
 
@@ -1541,7 +1580,7 @@ int main(int argc, char **argv) {
 
   log_info("Bot online!");
 
-  //make sure fprintf stdout works on docker
+  // make sure fprintf stdout works on docker
   setbuf(stdout, NULL);
 
   sem_init(&(play_cmd_mutex), 0, 1);
