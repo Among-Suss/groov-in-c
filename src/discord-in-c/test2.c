@@ -1334,7 +1334,7 @@ void help_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   char message[9500];
 
   snprintf(
-      message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "Help:", "groov-in-c",
+      message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "List of Commands:", "groov-in-c",
       "Play music:                 `-p [youtube link or text to search youtube]`\\n\
       Play next (cut queue):      `-pn [youtube link or text]`\\n\
       Pause music:                `-pause`\\n\
@@ -1348,7 +1348,8 @@ void help_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
       Clear queue:                `-clear`\\n\
       Shuffle queue:              `-shuffle`\\n\
       Seek music:                 `-seek [hour]:[mins]:[secs]`\\n\
-          Example: `-seek 3:20` (goes to 3 minutes 20 seconds in the song)", "");
+          Example: `-seek 3:20` (goes to 3 minutes 20 seconds in the song)\\n\
+      List commands:              `-help`", "");
   // }
 
   // finalize message into sendable format
