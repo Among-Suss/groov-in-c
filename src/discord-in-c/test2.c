@@ -1145,7 +1145,7 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
 
       // todo split timestapm and label
 
-      snprintf(line_buf, 1500, "\\n**%d.** %s", i + 1, label_json);
+      snprintf(line_buf, 1500, "\\n**%d.** `%s`", i + 1, label_json);
 
       strcat(message_body, line_buf);
     }
@@ -1296,14 +1296,14 @@ void seek_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   }
 
   // escape out descirption string
-  char description_parsed[sizeof(ytpobj.description)];
+  char description_escaped[sizeof(ytpobj.description)];
   escape_http_doublequote(ytpobj.description, sizeof(ytpobj.description),
-                          description_parsed, sizeof(description_parsed));
-  fix_string_ending(description_parsed);
+                          description_escaped, sizeof(description_escaped));
+  fix_string_ending(description_escaped);
 
   // Timestamps
   cJSON *timestamp_json_arr = cJSON_CreateArray();
-  parse_description_timestamps(description_parsed, timestamp_json_arr);
+  parse_description_timestamps(description_escaped, timestamp_json_arr);
 
   int seek_time = -1;
   char label[1024];
