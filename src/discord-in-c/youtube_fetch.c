@@ -277,23 +277,64 @@ int parse_description_timestamps(char *description, cJSON *timestamp_arr) {
     if (line == NULL)
       break;
 
-    char timestamp_text[1024];
+    char label_text[1024]; 
 
-    strncpy(timestamp_text, line, 1023);
+    strncpy(label_text, line, 1023);
 
-    char *timestamp_word = strtok_r(line, " ", &saveptr2);
+    char *timestamp_word; // The 
+    while ((timestamp_word = strtok_r(line, " 　\t\r\n\v\f", &saveptr2)) !=
+           NULL) {
 
-    if (parse_time(timestamp_word) != -1) {
-      cJSON *item = cJSON_CreateObject();
+      if (parse_time(timestamp_word) != -1) {
+        cJSON *item = cJSON_CreateObject();
 
-      cJSON_AddItemToObject(item, "label", cJSON_CreateString(timestamp_text));
-      cJSON_AddItemToObject(item, "timestamp", cJSON_CreateNumber(parse_time(timestamp_word)));
+        cJSON_AddItemToObject(item, "label",
+                              cJSON_CreateString(label_text));
+        cJSON_AddItemToObject(item, "timestamp",
+                              cJSON_CreateNumber(parse_time(timestamp_word)));
 
-      cJSON_AddItemToArray(timestamp_arr, item);
+        cJSON_AddItemToArray(timestamp_arr, item);
+      }
+
+      line = NULL;
     }
 
     description = NULL;
   }
 
   return 0;
+}
+
+// not finished
+int get_video_chapters(char *url, cJSON *chapters_arr) {
+  char cmd[1024] = "youtube-dl --dump-json --skip-download '";
+  strcat(cmd, url);
+  strcat(cmd, "'");
+
+  puts(cmd);
+
+  FILE *stream = popen(cmd, "r");
+
+  int buffer_size = 300000;
+  int json_str_size = 0;
+
+  char *raw_json = malloc(sizeof(char) * buffer_size);
+  raw_json[0] = 0;
+  char buf[1024];
+
+  int count = 0;
+  while (buf != NULL) {
+    json_str_size += 1024;
+
+    if (json_str_size > buffer_size) {
+      raw_json = realloc(raw_json, buffer_size + 10000);
+      buffer_size += 10000;
+    }
+
+    strncat(raw_json, buf, 1024);
+  }
+  pclose(stream);
+
+  puts(raw_json);
+  free(raw_json);
 }
