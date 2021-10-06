@@ -20,12 +20,11 @@ typedef struct discord_t {
 
   int reconnection_count;
   time_t last_reconnection_time;
-  
+
   StrMap *user_vc_map;
 
   sem_t *gateway_thread_exiter;
 } discord_t;
-
 
 typedef struct voice_gateway_t {
   discord_t *discord;
@@ -44,7 +43,7 @@ typedef struct voice_gateway_t {
   sem_t voice_key_ready;
   StrMap *data_dictionary;
   int voice_udp_sockfd;
-  
+
   int reconnection_count;
   time_t last_reconnection_time;
 

@@ -33,13 +33,11 @@
 #include "litesocket/litesocket.structs.h"
 #include "utils.h"
 
-
-
 // helpers from opusrtp.c
 
-//defines from opusrtp.c
+// defines from opusrtp.c
 #define RTP_HEADER_MIN 12
-typedef struct rtp_header{
+typedef struct rtp_header {
   int version;
   int type;
   int pad, ext, cc, mark;
@@ -265,8 +263,7 @@ void wait_for_time_slot(int delta, time_slot_wait_t *state) {
 
 int send_rtp_packet(int fd, struct sockaddr *addr, socklen_t addrlen,
                     rtp_header *rtp, const unsigned char *opus_packet,
-                    unsigned char *key) 
-  {
+                    unsigned char *key) {
   int ret;
   unsigned char packet[65535];
 
@@ -293,7 +290,8 @@ int send_rtp_packet(int fd, struct sockaddr *addr, socklen_t addrlen,
 }
 
 int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
-                          int *ffmpeg_running_state, media_player_t *media_obj_ptr) {
+                          int *ffmpeg_running_state,
+                          media_player_t *media_obj_ptr) {
   /* POSIX MONOTONIC CLOCK MEASURER */
   clockid_t clock_id;
   struct timespec start, end;
@@ -315,7 +313,7 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
   char *in_data, dummy_char;
   const long in_size = 8192; //= 8192;
   size_t in_read;
-  
+
   rtp.version = 2;
   rtp.type = payload_type;
   rtp.pad = 0;
@@ -331,38 +329,39 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
 
   fprintf(stderr, "Starting sender\n\nSending %s\n\n", filename);
   in_fd = open(filename, O_RDONLY, 0644);
-  if(!in_fd){
+  if (!in_fd) {
     fprintf(stderr, "ERROR: cannot open file in sender\n");
   }
 
   ret = ogg_sync_init(&oy);
-  if(ret < 0){
+  if (ret < 0) {
     fprintf(stdout, "OGG ERROR\n");
   }
 
   while ((read_test_len = read(in_fd, &dummy_char, 1)) ||
          *ffmpeg_running_state) {
 
-    if(media_obj_ptr && sem_trywait(&(media_obj_ptr->skipper)) >= 0){
-      fprintf(stdout, "Media Player received skip signal, stopping playback.\n");
+    if (media_obj_ptr && sem_trywait(&(media_obj_ptr->skipper)) >= 0) {
+      fprintf(stdout,
+              "Media Player received skip signal, stopping playback.\n");
       break;
     }
 
     if (read_test_len == 1) {
       lseek(in_fd, -1, SEEK_CUR);
-    }else{
+    } else {
       wait_for_time_slot(20000000, &state);
       continue;
     }
 
     in_data = ogg_sync_buffer(&oy, in_size);
-    if(!in_data){
+    if (!in_data) {
       fprintf(stderr, "ERROR: ogg_sync_buffer\n");
     }
 
     in_read = read(in_fd, in_data, in_size);
     ret = ogg_sync_wrote(&oy, in_read);
-    if(ret < 0){
+    if (ret < 0) {
       fprintf(stderr, "ERROR: ogg_sync_wrote\n");
     }
 
@@ -371,7 +370,7 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
         if (is_opus(&og)) {
           /* this is the start of an Opus stream */
           ret = ogg_stream_init(&os, ogg_page_serialno(&og));
-          if(ret < 0){
+          if (ret < 0) {
             fprintf(stderr, "ERROR: ogg_page_serialno\n");
           }
           headers++;
@@ -387,7 +386,7 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
       }
       /* submit the page for packetization */
       ret = ogg_stream_pagein(&os, &og);
-      if(ret < 0){
+      if (ret < 0) {
         fprintf(stderr, "ERROR: ogg_stream_pagein\n");
       }
 
@@ -413,19 +412,23 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
         }
 
         /* update the rtp header and send */
-        media_obj_ptr->current_song_time = media_obj_ptr->current_song_time + (((double)samples) * 62500.0 / 3.0 / 1000000000.0);
+        media_obj_ptr->current_song_time =
+            media_obj_ptr->current_song_time +
+            (((double)samples) * 62500.0 / 3.0 / 1000000000.0);
         rtp.seq++;
         rtp.time += samples;
         rtp.payload_size = op.bytes;
-        if(media_obj_ptr) {
+        if (media_obj_ptr) {
           sem_wait(&(media_obj_ptr->destination_info_mutex));
-          send_rtp_packet(media_obj_ptr->udp_fd, media_obj_ptr->addr_malloc, media_obj_ptr->addrlen, &rtp, op.packet, media_obj_ptr->key);
+          send_rtp_packet(media_obj_ptr->udp_fd, media_obj_ptr->addr_malloc,
+                          media_obj_ptr->addrlen, &rtp, op.packet,
+                          media_obj_ptr->key);
           sem_post(&(media_obj_ptr->destination_info_mutex));
-        }else{
+        } else {
           fprintf(stderr, "ERROR: media player obj is NULL.\n");
         }
 
-        //timer to verify that sender is on time
+        // timer to verify that sender is on time
         clock_gettime(clock_id, &end);
         long secediff = (long int)end.tv_sec - start.tv_sec;
         long usecdiff =
@@ -433,10 +436,10 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
 
         if (usecdiff > 25000 || usecdiff < 15000) {
           log_trace(
-                  "WHOOPS...Abnormal Frame: "
-                  "........................................................... "
-                  "%ld\n",
-                  usecdiff);
+              "WHOOPS...Abnormal Frame: "
+              "........................................................... "
+              "%ld\n",
+              usecdiff);
         }
 
         start = end;
@@ -444,12 +447,12 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
         /* convert number of 48 kHz samples to nanoseconds without overflow */
         wait_for_time_slot(samples * 62500 / 3, &state);
 
-        //pause function
+        // pause function
         int pauser_value;
         sem_getvalue(&(media_obj_ptr->pauser), &pauser_value);
         sem_wait(&(media_obj_ptr->pauser));
         sem_post(&(media_obj_ptr->pauser));
-        if(pauser_value == 0){
+        if (pauser_value == 0) {
           fprintf(stdout, "Pause detected, reinitializing packet timer.\n");
           state.initialized = 0;
           wait_for_time_slot(0, &state);
@@ -490,7 +493,8 @@ int rtp_send_file(const char *filename, const char *dest, const char *port,
 
   freeaddrinfo(addrs);
 
-  ret = rtp_send_file_to_addr(filename, payload_type, ssrc, ffmpeg_running_state, media_obj_ptr);
+  ret = rtp_send_file_to_addr(filename, payload_type, ssrc,
+                              ffmpeg_running_state, media_obj_ptr);
   return ret;
 }
 
@@ -506,32 +510,31 @@ void *ffmpeg_process_waiter(void *ptr) {
 
   *ffmpeg_process_state = 0;
 
-
   sem_wait(&(fptr->wait_until_song_finish));
-
 
   free(fptr->ffmpeg_process_state);
   free(fptr);
   return NULL;
 }
 
-void play_youtube_url(char *youtube_link, int time_offset, char *key_str, char *ssrc_str,
-                      char *dest_address, char *dest_port, const int sockfd,
-                      char *cache_file_unique_name, media_player_t *media_obj_ptr) {
+void play_youtube_url(char *youtube_link, int time_offset, char *key_str,
+                      char *ssrc_str, char *dest_address, char *dest_port,
+                      const int sockfd, char *cache_file_unique_name,
+                      media_player_t *media_obj_ptr) {
   char *url = youtube_link;
 
   int fd = open(cache_file_unique_name, O_CREAT | O_RDWR | O_TRUNC, 0644);
   close(fd);
 
-  //converting start time to string
-  char star_time_str[64] = { 0 };
+  // converting start time to string
+  char star_time_str[64] = {0};
   snprintf(star_time_str, sizeof(star_time_str), "%d", time_offset);
 
   fprintf(stdout, "Running ffmpeg...\n");
 
   char *log_level_env = getenv("LOG_LEVEL");
 
-      pid_t pid;
+  pid_t pid;
   if ((pid = fork()) == 0) {
     char *new_argv[50] = {
         "ffmpeg",
@@ -619,8 +622,7 @@ void play_youtube_url(char *youtube_link, int time_offset, char *key_str, char *
   sem_post(&(fptr->wait_until_song_finish));
 }
 
-
-void *media_player_threaded(void *ptr){
+void *media_player_threaded(void *ptr) {
   struct timespec now;
   pthread_detach(pthread_self());
   youtube_player_t *yptr = (youtube_player_t *)ptr;
@@ -630,10 +632,11 @@ void *media_player_threaded(void *ptr){
   youtube_page_object_t *ytpobj_p;
   char link[MAX_URL_LEN_MEDIA];
   int start_time_offset;
-  while(sem_trywait(&(yptr->media_player_t_ptr->quitter)) < 0){
-    ytpobj_p = sbuf_peek_end_value_direct(&(yptr->media_player_t_ptr->song_queue), NULL, 1);
+  while (sem_trywait(&(yptr->media_player_t_ptr->quitter)) < 0) {
+    ytpobj_p = sbuf_peek_end_value_direct(
+        &(yptr->media_player_t_ptr->song_queue), NULL, 1);
 
-    if(sem_trywait(&(yptr->media_player_t_ptr->quitter)) >= 0){
+    if (sem_trywait(&(yptr->media_player_t_ptr->quitter)) >= 0) {
       break;
     }
 
@@ -645,33 +648,34 @@ void *media_player_threaded(void *ptr){
     clock_gettime(CLOCK_REALTIME, &now);
     long video_age = now.tv_sec - ytpobj_p->audio_url_create_date.tv_sec;
     fprintf(stdout, "Video age:%ld\n", video_age);
-    if(!(video_age < 600 && video_age >= 0)){
+    if (!(video_age < 600 && video_age >= 0)) {
       complete_youtube_object_fields(ytpobj_p);
     }
-    //debug -- log
-    fprintf(stdout, "Playing song: %s; Starting at %d seconds.\n", ytpobj_p->title, ytpobj_p->start_time_offset);
-    //copy the link into local buffer
+    // debug -- log
+    fprintf(stdout, "Playing song: %s; Starting at %d seconds.\n",
+            ytpobj_p->title, ytpobj_p->start_time_offset);
+    // copy the link into local buffer
     memcpy(link, ytpobj_p->audio_url, sizeof(ytpobj_p->audio_url));
-    //get start_time_offset
+    // get start_time_offset
     start_time_offset = ytpobj_p->start_time_offset;
-    //clean up the peeked pointer
+    // clean up the peeked pointer
     ytpobj_p = NULL;
     sbuf_stop_peeking(&(yptr->media_player_t_ptr->song_queue));
 
-    //start playing music
+    // start playing music
     yptr->media_player_t_ptr->current_song_time = 0;
     yptr->media_player_t_ptr->playing = 1;
     yptr->media_player_t_ptr->skippable = 1;
-    send_websocket(yptr->vgt->voice_ssl,
-          "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
-          strlen(
-              "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
-          1);
+    send_websocket(
+        yptr->vgt->voice_ssl,
+        "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
+        strlen("{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
+        1);
     play_youtube_url(link, start_time_offset, yptr->key_str, yptr->ssrc_str,
-                yptr->dest_address, yptr->dest_port, yptr->socketfd,
-                yptr->cache_file_unique_name, yptr->media_player_t_ptr);
+                     yptr->dest_address, yptr->dest_port, yptr->socketfd,
+                     yptr->cache_file_unique_name, yptr->media_player_t_ptr);
 
-    //finish playing music, clean up and move on
+    // finish playing music, clean up and move on
     yptr->media_player_t_ptr->skippable = 0;
     yptr->media_player_t_ptr->playing = 0;
     sbuf_remove_end_value(&(yptr->media_player_t_ptr->song_queue), 0, 0, 0);
@@ -688,16 +692,16 @@ void *media_player_threaded(void *ptr){
   free(yptr->dest_port);
   free(yptr->cache_file_unique_name);
   free(yptr->media_player_t_ptr);
-  
+
   free(ptr);
 
   return NULL;
 }
 
-media_player_t *start_player(char *key_str, char *ssrc_str,
-                            char *dest_address, char *dest_port, int socketfd,
-                            char *cache_file_unique_name, voice_gateway_t *vgt)
-{
+media_player_t *start_player(char *key_str, char *ssrc_str, char *dest_address,
+                             char *dest_port, int socketfd,
+                             char *cache_file_unique_name,
+                             voice_gateway_t *vgt) {
   youtube_player_t *yptr = malloc(sizeof(youtube_player_t));
   int key_str_len = strlen(key_str) + 1;
   int ssrc_str_len = strlen(ssrc_str) + 1;
@@ -719,7 +723,8 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
   memcpy(yptr->ssrc_str, ssrc_str, ssrc_str_len);
   memcpy(yptr->dest_address, dest_address, dest_address_len);
   memcpy(yptr->dest_port, dest_port, dest_port_len);
-  memcpy(yptr->cache_file_unique_name, cache_file_unique_name, cache_file_unique_name_len);
+  memcpy(yptr->cache_file_unique_name, cache_file_unique_name,
+         cache_file_unique_name_len);
 
   sbuf_init(&(yptr->media_player_t_ptr->song_queue));
   sem_init(&(yptr->media_player_t_ptr->skipper), 0, 0);
@@ -740,15 +745,16 @@ media_player_t *start_player(char *key_str, char *ssrc_str,
   return yptr->media_player_t_ptr;
 }
 
-media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssrc_str,
-                            char *dest_address, char *dest_port, int socketfd,
-                            char *cache_file_unique_name, voice_gateway_t *vgt)
-{
+media_player_t *modify_player(media_player_t *media, char *key_str_og,
+                              char *ssrc_str, char *dest_address,
+                              char *dest_port, int socketfd,
+                              char *cache_file_unique_name,
+                              voice_gateway_t *vgt) {
   close(media->udp_fd);
 
   sem_wait(&(media->destination_info_mutex));
 
-  //fix key
+  // fix key
   char *end;
   char *key_str_cpy = malloc(strlen(key_str_og) + 1);
   strcpy(key_str_cpy, key_str_og);
@@ -764,10 +770,10 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
   media->key[31] = atoi(key_str_cpy);
   free(key_str_cpy_unmov);
 
-  //fix file descriptor
+  // fix file descriptor
   media->udp_fd = socketfd;
 
-  //fix addr and addrlen
+  // fix addr and addrlen
   int ret;
   struct addrinfo *addrs;
   struct addrinfo hints;
@@ -779,8 +785,8 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
   hints.ai_protocol = IPPROTO_UDP;
   ret = getaddrinfo(dest_address, dest_port, &hints, &addrs);
   if (ret != 0 || !addrs) {
-    fprintf(stderr, "Cannot resolve host %s port %s: %s\n", dest_address, dest_port,
-            gai_strerror(ret));
+    fprintf(stderr, "Cannot resolve host %s port %s: %s\n", dest_address,
+            dest_port, gai_strerror(ret));
   }
 
   memcpy(media->addr_malloc, addrs->ai_addr, sizeof(struct sockaddr));
@@ -788,7 +794,7 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
 
   freeaddrinfo(addrs);
 
-  //fix youtube player ptr values
+  // fix youtube player ptr values
 
   int key_str_len = strlen(key_str_og) + 1;
   int ssrc_str_len = strlen(ssrc_str) + 1;
@@ -797,7 +803,8 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
 
   media->ytp->key_str = realloc(media->ytp->key_str, key_str_len);
   media->ytp->ssrc_str = realloc(media->ytp->ssrc_str, ssrc_str_len);
-  media->ytp->dest_address = realloc(media->ytp->dest_address, dest_address_len);
+  media->ytp->dest_address =
+      realloc(media->ytp->dest_address, dest_address_len);
   media->ytp->dest_port = realloc(media->ytp->dest_port, dest_port_len);
 
   strcpy(media->ytp->key_str, key_str_og);
@@ -808,12 +815,11 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og, char *ssr
 
   sem_post(&(media->destination_info_mutex));
 
-
-  send_websocket(media->ytp->vgt->voice_ssl,
-          "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
-          strlen(
-              "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
-          1);
+  send_websocket(
+      media->ytp->vgt->voice_ssl,
+      "{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}",
+      strlen("{\"op\":5,\"d\":{\"speaking\":5,\"delay\":0,\"ssrc\":66666}}"),
+      1);
 
   return 0;
 }
@@ -857,17 +863,18 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
     goto CLEANUP_GETVIDINFO;
   }
 
-  char str[sizeof(ytobjptr->title) + sizeof(ytobjptr->link) - 64 + sizeof(ytobjptr->description) 
-        + sizeof(ytobjptr->audio_url) + sizeof(ytobjptr->duration)];
+  char str[sizeof(ytobjptr->title) + sizeof(ytobjptr->link) - 64 +
+           sizeof(ytobjptr->description) + sizeof(ytobjptr->audio_url) +
+           sizeof(ytobjptr->duration)];
   int len = read(pipeids[0], str, sizeof(str) - 2);
-  if(len == -1){
+  if (len == -1) {
     func_retval = -1;
     goto CLEANUP_GETVIDINFO;
   }
   str[len] = 0;
-  
+
   char *uid = strchr(str, '\n');
-  if(!uid){
+  if (!uid) {
     func_retval = -1;
     goto CLEANUP_GETVIDINFO;
   }
@@ -875,7 +882,7 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   uid++;
 
   char *audio_url = strchr(uid, '\n');
-  if(!audio_url){
+  if (!audio_url) {
     func_retval = -1;
     goto CLEANUP_GETVIDINFO;
   }
@@ -883,7 +890,7 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   audio_url++;
 
   char *desc = strchr(audio_url, '\n');
-  if(!desc){
+  if (!desc) {
     func_retval = -1;
     goto CLEANUP_GETVIDINFO;
   }
@@ -891,13 +898,13 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   desc++;
 
   char *duration = strrchr(desc, '\n');
-  if(!duration){
+  if (!duration) {
     func_retval = -1;
     goto CLEANUP_GETVIDINFO;
   }
   *duration = 0;
   duration = strrchr(desc, '\n');
-  if(!duration){
+  if (!duration) {
     func_retval = -1;
     goto CLEANUP_GETVIDINFO;
   }
@@ -906,31 +913,33 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
 
   strncpy(ytobjptr->title, str, sizeof(ytobjptr->title) - 2);
   strncpy(ytobjptr->audio_url, audio_url, sizeof(ytobjptr->audio_url) - 2);
-  snprintf(ytobjptr->link, sizeof(ytobjptr->link), "https://www.youtube.com/watch?v=%s", uid);
+  snprintf(ytobjptr->link, sizeof(ytobjptr->link),
+           "https://www.youtube.com/watch?v=%s", uid);
   strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description) - 2);
   strncpy(ytobjptr->duration, duration, sizeof(ytobjptr->duration) - 2);
 
   char *time_sep = strchr(duration, ':');
-  if(!time_sep){
+  if (!time_sep) {
     ytobjptr->length_in_seconds = atoi(duration);
-  }else{
+  } else {
     *time_sep = 0;
     time_sep++;
     char *time_sep2 = strchr(time_sep, ':');
-    if(!time_sep2){
+    if (!time_sep2) {
       ytobjptr->length_in_seconds = 60 * atoi(duration) + atoi(time_sep);
-    }else{
+    } else {
       *time_sep2 = 0;
       time_sep2++;
-      ytobjptr->length_in_seconds = 60 * 60 * atoi(duration) + 60 * atoi(time_sep) + atoi(time_sep2);
+      ytobjptr->length_in_seconds =
+          60 * 60 * atoi(duration) + 60 * atoi(time_sep) + atoi(time_sep2);
     }
   }
-  
+
   fprintf(stdout, "Video information resolved: %s\n", ytobjptr->title);
 
   clock_gettime(CLOCK_REALTIME, &(ytobjptr->audio_url_create_date));
 
-  CLEANUP_GETVIDINFO:
+CLEANUP_GETVIDINFO:
 
   close(pipeids[0]);
 
@@ -938,28 +947,31 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
 }
 
 //-1 index signifies insert at front
-//positive index will start from the back.
-//index should not be zero
-int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_title, int return_title_len, int index){
+// positive index will start from the back.
+// index should not be zero
+int insert_queue_ydl_query(media_player_t *media, char *ydl_query,
+                           char *return_title, int return_title_len,
+                           int index) {
   media->skippable = 1;
 
-  sem_wait(&(media->insert_song_mutex)); //necessary to fix -leave cmd
+  sem_wait(&(media->insert_song_mutex)); // necessary to fix -leave cmd
 
-  youtube_page_object_t ytobj = { 0 };
+  youtube_page_object_t ytobj = {0};
 
   strncpy(ytobj.query, ydl_query, sizeof(ytobj.query) - 2);
   int ret = get_youtube_vid_info(ydl_query, &ytobj);
 
-  if(!ret){
-    if(index == -1){
+  if (!ret) {
+    if (index == -1) {
       sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
-    }else if(index > 0){
+    } else if (index > 0) {
       int queue_size = media->song_queue.size;
       int effective_index = index > queue_size ? queue_size : index;
-      sbuf_insert_value_position_from_back((&(media->song_queue)), &ytobj, sizeof(ytobj), effective_index);
+      sbuf_insert_value_position_from_back((&(media->song_queue)), &ytobj,
+                                           sizeof(ytobj), effective_index);
     }
   }
-  
+
   sem_post(&(media->insert_song_mutex));
 
   strncpy(return_title, ytobj.title, return_title_len - 1);
@@ -969,12 +981,14 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query, char *return_
 /**
  *  Insert data from a json object into the song queue
  */
-void insert_queue_ytb_partial(media_player_t *media, char *id, char *title, char *duration, int length) {
+void insert_queue_ytb_partial(media_player_t *media, char *id, char *title,
+                              char *duration, int length) {
   media->skippable = 1;
 
-  youtube_page_object_t ytobj = { 0 };
+  youtube_page_object_t ytobj = {0};
 
-  snprintf(ytobj.link, sizeof(ytobj.link), "https://www.youtube.com/watch?v=%s", id);
+  snprintf(ytobj.link, sizeof(ytobj.link), "https://www.youtube.com/watch?v=%s",
+           id);
   snprintf(ytobj.title, sizeof(ytobj.title), "%s", title);
   snprintf(ytobj.duration, sizeof(ytobj.duration), "%s", duration);
   ytobj.length_in_seconds = length;
@@ -982,41 +996,43 @@ void insert_queue_ytb_partial(media_player_t *media, char *id, char *title, char
   sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
 }
 
-//finish object evaluation for necessary informations
-void complete_youtube_object_fields(youtube_page_object_t *ytobjptr){
+// finish object evaluation for necessary informations
+void complete_youtube_object_fields(youtube_page_object_t *ytobjptr) {
   get_youtube_vid_info(ytobjptr->link, ytobjptr);
 }
 
-void seek_media_player(media_player_t *media, int time_in_seconds){
+void seek_media_player(media_player_t *media, int time_in_seconds) {
   youtube_page_object_t ytpobj;
-  void* retval = sbuf_peek_end_value_copy(&(media->song_queue), &(ytpobj), sizeof(ytpobj),
-                      0);
-  if(!retval){
+  void *retval = sbuf_peek_end_value_copy(&(media->song_queue), &(ytpobj),
+                                          sizeof(ytpobj), 0);
+  if (!retval) {
     return;
   }
-  
-  if(time_in_seconds < 0 || time_in_seconds >= ytpobj.length_in_seconds){
+
+  if (time_in_seconds < 0 || time_in_seconds >= ytpobj.length_in_seconds) {
     time_in_seconds = 0;
   }
 
   ytpobj.start_time_offset = time_in_seconds;
 
-  sbuf_insert_value_position_from_back(&(media->song_queue), &ytpobj, sizeof(ytpobj), 1);
+  sbuf_insert_value_position_from_back(&(media->song_queue), &ytpobj,
+                                       sizeof(ytpobj), 1);
   sem_post(&(media->skipper));
 }
 
-void shuffle_media_player(media_player_t *media){
+void shuffle_media_player(media_player_t *media) {
   sbuf_shuffle_random(&(media->song_queue));
 }
 
-void clear_media_player(media_player_t *media){
+void clear_media_player(media_player_t *media) {
   youtube_page_object_t ytpobj;
-  void* retval = sbuf_peek_end_value_copy(&(media->song_queue), &(ytpobj), sizeof(ytpobj),
-                      0);
-  if(!retval){
+  void *retval = sbuf_peek_end_value_copy(&(media->song_queue), &(ytpobj),
+                                          sizeof(ytpobj), 0);
+  if (!retval) {
     return;
   }
 
   sbuf_clear(&(media->song_queue));
-  sbuf_insert_value_position_from_back(&(media->song_queue), &ytpobj, sizeof(ytpobj), 0);
+  sbuf_insert_value_position_from_back(&(media->song_queue), &ytpobj,
+                                       sizeof(ytpobj), 0);
 }

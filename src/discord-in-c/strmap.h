@@ -7,13 +7,13 @@
  *	  1.0.0 - initial release
  *	  2.0.0 - changed function prefix from strmap to sm to ensure
  *	      ANSI C compatibility
- *	  2.0.1 - improved documentation 
+ *	  2.0.1 - improved documentation
  *
  *    strmap.h
  *
  *    Copyright (c) 2009, 2011, 2013 Per Ola Kristensson.
  *
- *    Per Ola Kristensson <pok21@cam.ac.uk> 
+ *    Per Ola Kristensson <pok21@cam.ac.uk>
  *    Inference Group, Department of Physics
  *    University of Cambridge
  *    Cavendish Laboratory
@@ -22,9 +22,9 @@
  *    United Kingdom
  *
  *    strmap is free software: you can redistribute it and/or modify
- *    it under the terms of the GNU Lesser General Public License as published by
- *    the Free Software Foundation, either version 3 of the License, or
- *    (at your option) any later version.
+ *    it under the terms of the GNU Lesser General Public License as published
+ *by the Free Software Foundation, either version 3 of the License, or (at your
+ *option) any later version.
  *
  *    strmap is distributed in the hope that it will be useful,
  *    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,8 +38,7 @@
 #define _STRMAP_H_
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <semaphore.h>
@@ -65,7 +64,8 @@ typedef struct StrMap StrMap;
  *
  * Return value: None.
  */
-typedef void(*sm_enum_func)(const char *key, const char *value, int value_len, const void *obj);
+typedef void (*sm_enum_func)(const char *key, const char *value, int value_len,
+                             const void *obj);
 
 /*
  * Creates a string map.
@@ -75,10 +75,10 @@ typedef void(*sm_enum_func)(const char *key, const char *value, int value_len, c
  * capacity: The number of top-level slots this string map
  * should allocate. This parameter must be > 0.
  *
- * Return value: A pointer to a string map object, 
+ * Return value: A pointer to a string map object,
  * or null if a new string map could not be allocated.
  */
-StrMap * sm_new(unsigned int capacity);
+StrMap *sm_new(unsigned int capacity);
 
 /*
  * Releases all memory held by a string map object.
@@ -110,12 +110,12 @@ void sm_delete(StrMap *map);
  *
  * Return value: If out_buf is set to null and n_out_buf is set to 0 the return
  * value will be the number of bytes required to store the value (if it exists)
- * and its null-terminator. For all other parameter configurations the return value
- * is 1 if an associated value was found and completely copied into the output buffer,
- * 0 otherwise.
- * 
+ * and its null-terminator. For all other parameter configurations the return
+ * value is 1 if an associated value was found and completely copied into the
+ * output buffer, 0 otherwise.
+ *
  * (edit: instead of returning 1, returns the size of "value")
- * 
+ *
  */
 int sm_get(StrMap *map, const char *key, char *out_buf, unsigned int n_out_buf);
 
@@ -191,7 +191,7 @@ int sm_enum(const StrMap *map, sm_enum_func enum_func, const void *obj);
 
 /*
 
-		   GNU LESSER GENERAL PUBLIC LICENSE
+                   GNU LESSER GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
  Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>

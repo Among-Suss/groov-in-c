@@ -18,18 +18,18 @@ void init_openssl() {
  *  Free ssl object
  */
 void disconnect_and_free_ssl(SSL *ssl) {
-  if(ssl){
+  if (ssl) {
     int sockfd = SSL_get_rfd(ssl);
     struct timeval tv;
     tv.tv_sec = 1;
     tv.tv_usec = 0;
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
 
     SSL_shutdown(ssl);
     SSL_shutdown(ssl);
 
     sleep(1);
-    
+
     SSL_free(ssl);
   }
 }
@@ -122,20 +122,20 @@ int read_websocket_header(SSL *ssl, unsigned long *msg_len, int *msg_fin) {
   return 0;
 }
 
-unsigned long get_http_content_length(char *header, unsigned long len){
+unsigned long get_http_content_length(char *header, unsigned long len) {
   char *start = strcasestr(header, "Content-Length:");
   start += 15;
 
-  while(*start == ' ' || *start == '\t'){
+  while (*start == ' ' || *start == '\t') {
     start++;
   }
   char *end;
   end = strstr(start, "\r\n");
-  if(end)
+  if (end)
     *end = 0;
 
   end = strchr(start, ' ');
-  if(end)
+  if (end)
     *end = 0;
 
   return atoi(start);
@@ -147,13 +147,13 @@ unsigned long get_http_content_length(char *header, unsigned long len){
  *  1. Reads websocket header and get content length and message fin
  *  2. Reads websocket payload into a buffer
  *  3. write the actual size written into read_len
- * 
+ *
  *  Return a pointer to a dynamically allocated buffer.
  *  Needs to be freed by caller function.
  *
  */
-char* simple_receive_websocket(SSL *ssl, unsigned long *read_len,
-                             int *msg_fin) {
+char *simple_receive_websocket(SSL *ssl, unsigned long *read_len,
+                               int *msg_fin) {
   unsigned long len, content_len, readlen, total_read_bytes;
   char *buf;
   int retval;
@@ -189,9 +189,9 @@ char* simple_receive_websocket(SSL *ssl, unsigned long *read_len,
  *  Sends websocket message
  *  1. create websocket header
  *  2. bit mask message and send
- * 
+ *
  *  Limitations:
- *  - 
+ *  -
  *
  */
 int send_websocket(SSL *ssl, char *msg, unsigned long msglen, int opcode) {
@@ -250,11 +250,11 @@ int send_websocket(SSL *ssl, char *msg, unsigned long msglen, int opcode) {
   return 0;
 }
 
-int send_raw(SSL *ssl, char *data, unsigned long len){
+int send_raw(SSL *ssl, char *data, unsigned long len) {
   return SSL_write(ssl, data, len);
 }
 
-int read_raw(SSL *ssl, char *buffer, unsigned long len){
+int read_raw(SSL *ssl, char *buffer, unsigned long len) {
   return SSL_read(ssl, buffer, len);
 }
 
@@ -279,7 +279,7 @@ void random_base64(char *buffer, int len) {
 }
 
 SSL *ssl_reconnect(SSL *ssl, char *hostname, int hostname_len, char *port,
-                              int port_len) {
+                   int port_len) {
   int clientfd;
   struct addrinfo hints, *listp;
 
@@ -313,7 +313,7 @@ SSL *ssl_reconnect(SSL *ssl, char *hostname, int hostname_len, char *port,
     printf("Error creating SSL connection.\n");
     return 0;
   }
-  //printf("SSL connection using %s\n", SSL_get_cipher(ssl));
+  // printf("SSL connection using %s\n", SSL_get_cipher(ssl));
 
   return ssl;
 }
@@ -404,7 +404,7 @@ SSL *establish_websocket_connection(char *hostname, int hostname_len,
   return ssl;
 }
 
-//callback will call with null buffer and 0 readlen when the connection ends...
+// callback will call with null buffer and 0 readlen when the connection ends...
 void *threaded_receive_websock(void *ptr) {
   pthread_detach(pthread_self());
   callback_t *callback_data_p = ((callback_t *)ptr);
@@ -415,24 +415,26 @@ void *threaded_receive_websock(void *ptr) {
 
   int run = 1;
   int trywaitval = -1;
-  while (run >= 0){
+  while (run >= 0) {
     buffer = simple_receive_websocket(callback_data_p->ssl, &readlen, &msgfin);
 
     trywaitval = sem_trywait(&(callback_data_p->exiter));
-    if(trywaitval >= 0){
+    if (trywaitval >= 0) {
       break;
     }
 
-    if(buffer){
-      (callback_data_p->callback)(callback_data_p->ssl, callback_data_p->state, buffer, readlen);
+    if (buffer) {
+      (callback_data_p->callback)(callback_data_p->ssl, callback_data_p->state,
+                                  buffer, readlen);
       free(buffer);
-    }else{
+    } else {
       break;
     }
   }
 
-  if(trywaitval < 0){
-    (callback_data_p->callback)(callback_data_p->ssl, callback_data_p->state, 0, 0);
+  if (trywaitval < 0) {
+    (callback_data_p->callback)(callback_data_p->ssl, callback_data_p->state, 0,
+                                0);
   }
 
   free(ptr);
@@ -441,9 +443,10 @@ void *threaded_receive_websock(void *ptr) {
   return NULL;
 }
 
-pthread_t bind_websocket_listener(SSL *ssl, void *state, callback_func_t callback, sem_t **exiter){
+pthread_t bind_websocket_listener(SSL *ssl, void *state,
+                                  callback_func_t callback, sem_t **exiter) {
   pthread_t tid;
-  
+
   callback_t *callback_data = malloc(sizeof(callback_t));
   callback_data->callback = callback;
   callback_data->ssl = ssl;

@@ -849,12 +849,12 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
   char temp_message[300];
   int queue_end = 0;
   int num_of_songs = vgt->media->song_queue.size - 1;
-  long int num_of_queue_pages = (long int)ceil(((double)num_of_songs) / ((double)QUEUELENGTH));
+  long int num_of_queue_pages =
+      (long int)ceil(((double)num_of_songs) / ((double)QUEUELENGTH));
 
   if (num_of_songs < 0) {
     num_of_songs = 0;
   }
-
 
   for (int x = 0; x < QUEUELENGTH * 2; x += 2) {
     int written_index = queue_page * QUEUELENGTH + (x / 2) + 1;
@@ -897,9 +897,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
 
   snprintf(temp_message, sizeof(temp_message),
            "\\n Queue Page %ld of %ld. \\n Total %d songs in queue.",
-           queue_page,
-           num_of_queue_pages,
-           num_of_songs);
+           queue_page, num_of_queue_pages, num_of_songs);
   strcat(inner_message, temp_message);
 
   // cleanup
@@ -1345,7 +1343,8 @@ void help_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   char message[9500];
 
   snprintf(
-      message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "List of Commands:", "groov-in-c",
+      message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,
+      "List of Commands:", "groov-in-c",
       "Play music:                 `-p [youtube link or text to search youtube]`\\n\
       Play next (cut queue):      `-pn [youtube link or text]`\\n\
       Pause music:                `-pause`\\n\
@@ -1360,7 +1359,8 @@ void help_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
       Shuffle queue:              `-shuffle`\\n\
       Seek music:                 `-seek [hour]:[mins]:[secs]`\\n\
           Example: `-seek 3:20` (goes to 3 minutes 20 seconds in the song)\\n\
-      List commands:              `-help`", "");
+      List commands:              `-help`",
+      "");
   // }
 
   // finalize message into sendable format

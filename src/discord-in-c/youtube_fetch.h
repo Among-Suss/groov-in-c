@@ -17,9 +17,8 @@ int fetch_get(char *url, char **raw);
 int trim_between(char *text, char const *start, char const *end);
 
 typedef void (*insert_partial_ytp_callback_f)(void *media, char *id,
-                                                       char *title,
-                                                       char *duration,
-                                                       int length);
+                                              char *title, char *duration,
+                                              int length);
 
 /* ----------------------------- Main functions ----------------------------- */
 
@@ -35,7 +34,8 @@ typedef void (*insert_partial_ytp_callback_f)(void *media, char *id,
  * @param start Start index
  * @param media Media object for callback
  * @param callback Insert partial youtube page callback
- * @param title Pointer to buffer where the title will be stored. Should contain atleast 200 characters
+ * @param title Pointer to buffer where the title will be stored. Should contain
+ atleast 200 characters
  * @return Error code
  */
 int fetch_playlist(char *url, int start, void *media,
@@ -44,8 +44,8 @@ int fetch_playlist(char *url, int start, void *media,
 /**
  * Fetches description and escapes newlines and &
  * @param url Video URL
- * @param description Pointer to buffer where the description will be stored. Should
- * contain atleast 6000 characters
+ * @param description Pointer to buffer where the description will be stored.
+ * Should contain atleast 6000 characters
  */
 int fetch_description_youtube_dl(char *url, char *description);
 

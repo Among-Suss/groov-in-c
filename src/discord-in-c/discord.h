@@ -17,18 +17,19 @@
 #define DISCORD_DATA_TABLE_SIZE 100
 #define DISCORD_MAX_VOICE_CONNECTIONS 1000
 
-#define EXPECTED_NUM_USERS_MAX 997 //this number should be prime
+#define EXPECTED_NUM_USERS_MAX 997 // this number should be prime
 
 #define DISCORD_HOST "discord.com"
 #define DISCORD_PORT "443"
 
 #define BOUNDARY "ilovecommunism"
 
-//discord http api
-#define DISCORD_API_POST_MSG "POST /api/v9/channels/%s/messages HTTP/1.1\r\n" \
-  "Host: " DISCORD_HOST "\r\n" \
-  "Authorization: Bot %s\r\n" \
-  "Content-Length: %d\r\n" \
+// discord http api
+#define DISCORD_API_POST_MSG                                                   \
+  "POST /api/v9/channels/%s/messages HTTP/1.1\r\n"                             \
+  "Host: " DISCORD_HOST "\r\n"                                                 \
+  "Authorization: Bot %s\r\n"                                                  \
+  "Content-Length: %d\r\n"                                                     \
   "Content-Type: application/json"
 
 #define DISCORD_API_POST_FILE                                                  \
@@ -47,23 +48,24 @@
 
 #define POST_FORMDATA_END "--" BOUNDARY "--"
 
-#define DISCORD_API_POST_TYPING "POST /api/v9/channels/%s/typing HTTP/1.1\r\n" \
-  "Host: " DISCORD_HOST "\r\n" \
-  "Authorization: Bot %s\r\n" \
-  "Content-Length: 0\r\n" \
+#define DISCORD_API_POST_TYPING                                                \
+  "POST /api/v9/channels/%s/typing HTTP/1.1\r\n"                               \
+  "Host: " DISCORD_HOST "\r\n"                                                 \
+  "Authorization: Bot %s\r\n"                                                  \
+  "Content-Length: 0\r\n"                                                      \
   "Content-Type: application/json"
 
 #define DISCORD_API_POST_BODY_MSG_SIMPLE "{\"content\": \"%s\",\"tts\": false}"
-#define DISCORD_API_POST_BODY_MSG_EMBED "{"\
-  "\"content\": \"%s\","\
-  "\"tts\": false,"\
-  "\"embeds\": [{"\
-    "\"title\": \"%s\","\
-    "\"description\": \"%s\\n%s\","\
-    "\"color\": 10181046"\
-  "}]"\
-"}"
-
+#define DISCORD_API_POST_BODY_MSG_EMBED                                        \
+  "{"                                                                          \
+  "\"content\": \"%s\","                                                       \
+  "\"tts\": false,"                                                            \
+  "\"embeds\": [{"                                                             \
+  "\"title\": \"%s\","                                                         \
+  "\"description\": \"%s\\n%s\","                                              \
+  "\"color\": 10181046"                                                        \
+  "}]"                                                                         \
+  "}"
 
 #define DISCORD_GET_GATEWAY_REQUEST                                            \
   "GET /api/v9/gateway HTTP/1.1\r\nHost: discord.com\r\n\r\n"
@@ -72,27 +74,31 @@
 #define DISCORD_GATEWAY_HEARTBEAT                                              \
   "{\"op\": 1,\"d\": {},\"s\": null,\"t\": null}"
 #define DISCORD_GATEWAY_HEARTBEAT_INFO_OPCODE 10
-#define DISCORD_GATEWAY_AUTH_STRING "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": %s,\"properties\": {\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": \"discord_dot_c\"}}}"
-#define DISCORD_GATEWAY_REAUTH_STRING "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": %s,\"properties\": {\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": \"discord_dot_c\"}}}"
-
-
+#define DISCORD_GATEWAY_AUTH_STRING                                            \
+  "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": %s,\"properties\": "      \
+  "{\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": "          \
+  "\"discord_dot_c\"}}}"
+#define DISCORD_GATEWAY_REAUTH_STRING                                          \
+  "{\"op\": 2,\"d\": {\"token\": \"%s\",\"intents\": %s,\"properties\": "      \
+  "{\"$os\": \"linux\",\"$browser\": \"discord_dot_c\",\"$device\": "          \
+  "\"discord_dot_c\"}}}"
 
 #define DISCORD_VOICE_GT_URI "/?v=4"
 #define DISCORD_GATEWAY_VOICE_JOIN                                             \
   "{\"op\": 4,\"d\": {\"guild_id\": \"%s\",\"channel_id\": "                   \
   "\"%s\",\"self_mute\": false,\"self_deaf\": false}}"
 
-#define DISCORD_GATEWAY_VOICE_LEAVE                                             \
+#define DISCORD_GATEWAY_VOICE_LEAVE                                            \
   "{\"op\": 4,\"d\": {\"guild_id\": \"%s\",\"channel_id\": "                   \
   "null,\"self_mute\": false,\"self_deaf\": false}}"
 
-#define DISCORD_VOICE_REAUTH_STRING                                              \
-  "{\"op\": 7,\"d\": {\"server_id\": \"%s\",\"session_id\": \"%s\",\"token\": \"%s\"}}"
+#define DISCORD_VOICE_REAUTH_STRING                                            \
+  "{\"op\": 7,\"d\": {\"server_id\": \"%s\",\"session_id\": "                  \
+  "\"%s\",\"token\": \"%s\"}}"
 
 #define DISCORD_VOICE_AUTH_STRING                                              \
   "{\"op\": 0,\"d\": {\"server_id\": \"%s\",\"user_id\": "                     \
   "\"%s\",\"session_id\": \"%s\",\"token\": \"%s\"}}"
-
 
 #define DISCORD_VOICE_HEARTBEAT "{\"op\": 3,\"d\": 1501184119560}"
 #define DISCORD_VOICE_ESTABLISH_UDP                                            \
@@ -142,7 +148,8 @@
 
 typedef void (*usercallback_f)(void *state, char *msg, unsigned long msg_len);
 
-typedef void (*voice_gateway_reconnection_callback_f)(void *state, char *msg, unsigned long msg_len);
+typedef void (*voice_gateway_reconnection_callback_f)(void *state, char *msg,
+                                                      unsigned long msg_len);
 
 typedef struct discord_t discord_t;
 
@@ -153,6 +160,9 @@ void free_voice_gateway(voice_gateway_t *vgt);
 void free_discord(discord_t *discord);
 void connect_gateway(discord_t *discord_data);
 void set_gateway_callback(discord_t *discord, usercallback_f gateway_callback);
-voice_gateway_t *connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
-                           usercallback_f voice_callback, voice_gateway_reconnection_callback_f recon_callback, int wait_server);
+voice_gateway_t *
+connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
+                      usercallback_f voice_callback,
+                      voice_gateway_reconnection_callback_f recon_callback,
+                      int wait_server);
 void reconnect_voice(voice_gateway_t *vgt);

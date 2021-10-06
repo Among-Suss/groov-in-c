@@ -277,19 +277,18 @@ int parse_description_timestamps(char *description, cJSON *timestamp_arr) {
     if (line == NULL)
       break;
 
-    char label_text[1024]; 
+    char label_text[1024];
 
     strncpy(label_text, line, 1023);
 
-    char *timestamp_word; // The 
+    char *timestamp_word; // The
     while ((timestamp_word = strtok_r(line, " 　\t\r\n\v\f", &saveptr2)) !=
            NULL) {
 
       if (parse_time(timestamp_word) != -1) {
         cJSON *item = cJSON_CreateObject();
 
-        cJSON_AddItemToObject(item, "label",
-                              cJSON_CreateString(label_text));
+        cJSON_AddItemToObject(item, "label", cJSON_CreateString(label_text));
         cJSON_AddItemToObject(item, "timestamp",
                               cJSON_CreateNumber(parse_time(timestamp_word)));
 
