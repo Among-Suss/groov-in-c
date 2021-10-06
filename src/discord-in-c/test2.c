@@ -1130,7 +1130,7 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
     char message_body[6000];
     message_body[0] = 0;
 
-    for (int i = 0; i < cJSON_GetArraySize(timestamp_json_arr) - 1; i++) {
+    for (int i = 0; i < cJSON_GetArraySize(timestamp_json_arr); i++) {
       cJSON *item = cJSON_GetArrayItem(timestamp_json_arr, i);
       char *label_json =
           cJSON_GetStringValue(cJSON_GetObjectItem(item, "label"));
@@ -1140,8 +1140,6 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
         break;
 
       char line_buf[1500];
-
-      // todo split timestapm and label
 
       snprintf(line_buf, 1500, "\\n**%d.** `%s`", i + 1, label_json);
 
@@ -1218,7 +1216,7 @@ void skip_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   int seek_time = 0;
   char label[1024];
 
-  for (int i = 1; i < cJSON_GetArraySize(timestamp_json_arr) - 1; i++) {
+  for (int i = 1; i < cJSON_GetArraySize(timestamp_json_arr); i++) {
     int cur_timestamp = (int)cJSON_GetNumberValue(cJSON_GetObjectItem(
         cJSON_GetArrayItem(timestamp_json_arr, i - 1), "timestamp"));
     int next_timestamp = (int)cJSON_GetNumberValue(cJSON_GetObjectItem(
@@ -1306,7 +1304,7 @@ void seek_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   int seek_time = -1;
   char label[1024];
 
-  if (timestamp_no >= cJSON_GetArraySize(timestamp_json_arr) ||
+  if (timestamp_no > cJSON_GetArraySize(timestamp_json_arr) ||
       timestamp_no <= 0) {
 
     simple_send_msg(dis, "Timestamp out of range!", textchannelid);

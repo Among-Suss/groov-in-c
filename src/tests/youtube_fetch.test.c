@@ -13,11 +13,11 @@
   "Lorem　ipsum\n\n0:00 - Test1\n12:12 - Test2\n1:12:21 - Test3\n\nEnd\n"
 
 #define MOCK_TS_DESC_MID                                                       \
-  "Lorem ipsum\n\ntest - 0:00 - Test1\ntest - 12:12 - Test2\ntest - 1:12:21 "  \
+  "Lorem ipsum\n\ntest - 0:00- Test1\ntest - 12:12 - Test2\ntest - 1:12:21 "  \
   "- Test3\n\nEnd\n"
 
 #define MOCK_TS_DESC_END                                                       \
-  "Lorem ipsum\n\nTest1 - 0:00\nTest2 - 12:12\nTest3 - 12:12\n\nEnd\n"
+  "Lorem ipsum\n\nTest1 -0:00\nTest2 - 12:12\nTest3- 122:12:12\n\nEnd\n"
 
 #define RETRIES 10
 

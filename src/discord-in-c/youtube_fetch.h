@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <regex.h>
 #include <curl/curl.h>
 #include "cJSON.h"
+#include "log.h"
 
 /* -------------------------------- Lib curl -------------------------------- */
 struct MemoryStruct {
@@ -57,5 +59,3 @@ int fetch_description_youtube_dl(char *url, char *description);
  * format [{"timestamp": int, "label": str}]. Must be freed with cJSON_Delete
  */
 int parse_description_timestamps(char *description, cJSON *timestamps_arr);
-
-int get_video_chapters(char *url, cJSON *chapters_arr);
