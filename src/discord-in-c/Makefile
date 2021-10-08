@@ -1,6 +1,6 @@
 OBJDIR=obj
 CC=gcc
-CFLAGS=-Wall -Wextra -Wno-unused-parameter -O2
+CFLAGS=-g -Wall -Wextra -Wno-unused-parameter -O2
 MACROS=-DLOG_USE_COLOR
 LFLAGS=-lpthread -lssl -lcrypto -lsodium -lopus -logg -lm -lcurl
 

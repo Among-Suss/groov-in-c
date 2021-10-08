@@ -635,6 +635,11 @@ void *media_player_threaded(void *ptr) {
   while (sem_trywait(&(yptr->media_player_t_ptr->quitter)) < 0) {
     ytpobj_p = sbuf_peek_end_value_direct(
         &(yptr->media_player_t_ptr->song_queue), NULL, 1);
+    
+    if(!ytpobj_p){
+      sbuf_stop_peeking(&(yptr->media_player_t_ptr->song_queue));
+      continue;
+    }
 
     if (sem_trywait(&(yptr->media_player_t_ptr->quitter)) >= 0) {
       break;
