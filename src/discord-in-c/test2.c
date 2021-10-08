@@ -206,6 +206,11 @@ void escape_http_doublequote(char *input, long unsigned in_size, char *output,
 }
 void fix_string_ending(char *str) {
   int length = strlen(str);
+
+  if(length == 0){
+    return;
+  }
+
   unsigned char *working = ((unsigned char *)str) + length - 1;
   while (working != ((unsigned char *)str)) {
     if (((*working) & 0xC0) != 0x80) {
