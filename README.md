@@ -104,6 +104,10 @@ Clear queue:                -clear
 Shuffle queue:              -shuffle
 Seek music:                 -seek [hour]:[mins]:[secs]
     Example: -seek 3:20 (goes to 3 minutes 20 seconds in the song)
+Show Timestamps:            -timestamps
+Seek to timestamp:          -seekt [number]
+Skip current song in video: -skipt
+Help                        -help
 ```
 
 The -p command takes either a youtube link or search query

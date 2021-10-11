@@ -55,7 +55,12 @@ sem_t play_cmd_mutex;
   }
 
 #define CHECK_SONG_PLAYING(vgt, dis, textchannelid)                            \
-  if (!(vgt->media && vgt->media->playing)) {                                  \
+  if (!(vgt && vgt->media && vgt->media->playing)) {                           \
+    simple_send_msg(dis, "Not currently playing a song!", textchannelid);      \
+    return;                                                                    \
+  }
+#define CHECK_SKIPPABLE(vgt, dis, textchannelid)                               \
+  if (!(vgt && vgt->media && vgt->media->skippable)) {                         \
     simple_send_msg(dis, "Not currently playing a song!", textchannelid);      \
     return;                                                                    \
   }
@@ -207,7 +212,7 @@ void escape_http_doublequote(char *input, long unsigned in_size, char *output,
 void fix_string_ending(char *str) {
   int length = strlen(str);
 
-  if(length == 0){
+  if (length == 0) {
     return;
   }
 
@@ -624,23 +629,9 @@ void leave_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                    char *guildid, char *textchannelid, int wrong_vc,
                    int has_user, int is_dj) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
-
-  if (!(vgt && vgt->media && vgt->media->initialized && !wrong_vc)) {
-    if (wrong_vc) {
-      simple_send_msg(
-          dis, "Please make sure I am joined or in the correct voice channel.",
-          textchannelid);
-    } else {
-      simple_send_msg(dis, "No song playing!", textchannelid);
-    }
-    return;
-  }
 
   // wait for song mutex
   sem_wait(&(vgt->media->insert_song_mutex));
@@ -686,12 +677,10 @@ void skip_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                   int has_user, int is_dj) {
 
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
+  CHECK_SKIPPABLE(vgt, dis, textchannelid)
 
   sem_post(&(vgt->media->skipper));
 
@@ -707,44 +696,38 @@ void desc_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                   char *guildid, char *textchannelid, int wrong_vc,
                   int has_user) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
+  CHECK_SONG_PLAYING(vgt, dis, textchannelid)
 
   char message[9500];
-  if (vgt->media && vgt->media->playing) {
-    youtube_page_object_t ytpobj;
-    sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj),
-                             sizeof(ytpobj), 0);
+  youtube_page_object_t ytpobj;
+  sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
+                           0);
 
-    // check if youtube object is partially filled
-    if (ytpobj.description[0] == 0) {
-      complete_youtube_object_fields(&ytpobj);
-    }
-
-    // escape out descrption string
-    char text[sizeof(ytpobj.description)];
-    char text2[sizeof(ytpobj.description)];
-    escape_http_newline(ytpobj.description, sizeof(ytpobj.description), text,
-                        sizeof(ytpobj.description));
-    escape_http_doublequote(text, sizeof(text), text2, sizeof(text2));
-    fix_string_ending(text2);
-
-    // escape out title string
-    char text3[sizeof(ytpobj.title)];
-    char text4[sizeof(ytpobj.title)];
-    escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3,
-                        sizeof(ytpobj.title));
-    escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
-
-    // form final message
-    snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,
-             "Now Playing:", text4, ytpobj.link, text2);
-  } else {
-    snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_SIMPLE,
-             "Not currently playing a song!");
+  // check if youtube object is partially filled
+  if (ytpobj.description[0] == 0) {
+    complete_youtube_object_fields(&ytpobj);
   }
+
+  // escape out descrption string
+  char text[sizeof(ytpobj.description)];
+  char text2[sizeof(ytpobj.description)];
+  escape_http_newline(ytpobj.description, sizeof(ytpobj.description), text,
+                      sizeof(ytpobj.description));
+  escape_http_doublequote(text, sizeof(text), text2, sizeof(text2));
+  fix_string_ending(text2);
+
+  // escape out title string
+  char text3[sizeof(ytpobj.title)];
+  char text4[sizeof(ytpobj.title)];
+  escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3,
+                      sizeof(ytpobj.title));
+  escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
+
+  // form final message
+  snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,
+           "Now Playing:", text4, ytpobj.link, text2);
 
   // form sendable message
   char header[2000];
@@ -763,55 +746,49 @@ void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
                          user_vc_obj *uobjp, char *guildid, char *textchannelid,
                          int wrong_vc, int has_user) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
+  CHECK_SONG_PLAYING(vgt, dis, textchannelid)
 
   char message[9500];
-  if (vgt->media && vgt->media->playing) {
-    youtube_page_object_t ytpobj;
-    sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj),
-                             sizeof(ytpobj), 0);
+  youtube_page_object_t ytpobj;
+  sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
+                           0);
 
-    // escape out the text for json sending
-    char text3[sizeof(ytpobj.title)];
-    char text4[sizeof(ytpobj.title)];
-    escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3,
-                        sizeof(ytpobj.title));
-    escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
+  // escape out the text for json sending
+  char text3[sizeof(ytpobj.title)];
+  char text4[sizeof(ytpobj.title)];
+  escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3,
+                      sizeof(ytpobj.title));
+  escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
 
-    // get the current time to create progress bar
-    fprintf(stdout, "song time: %f\n", vgt->media->current_song_time);
-    long lapse = vgt->media->current_song_time + ytpobj.start_time_offset;
+  // get the current time to create progress bar
+  fprintf(stdout, "song time: %f\n", vgt->media->current_song_time);
+  long lapse = vgt->media->current_song_time + ytpobj.start_time_offset;
 
 // create bar
 #define barsize 30
-    char bar[barsize] = {0};
-    long progress = (barsize - 2) * lapse / (ytpobj.length_in_seconds);
-    for (int i = 0; i < barsize - 2; i++) {
-      if (i < progress)
-        strcat(bar, "#");
-      else
-        strcat(bar, "-");
-    }
-
-    // print formatted time string
-    char time_str[200] = {0};
-    char hour[20] = {0};
-    if (ytpobj.length_in_seconds / 3600 > 0) {
-      snprintf(hour, sizeof(hour), "%02ld:", lapse / 3600);
-    }
-    snprintf(time_str, sizeof(time_str), "```%s%02ld:%02ld [%s] %s```", hour,
-             (lapse / 60) % 60, lapse % 60, bar, ytpobj.duration);
-
-    // print the final message
-    snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,
-             "Now Playing:", text4, ytpobj.link, time_str);
-  } else {
-    snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_SIMPLE,
-             "Not currently playing a song!");
+  char bar[barsize] = {0};
+  long progress = (barsize - 2) * lapse / (ytpobj.length_in_seconds);
+  for (int i = 0; i < barsize - 2; i++) {
+    if (i < progress)
+      strcat(bar, "#");
+    else
+      strcat(bar, "-");
   }
+
+  // print formatted time string
+  char time_str[200] = {0};
+  char hour[20] = {0};
+  if (ytpobj.length_in_seconds / 3600 > 0) {
+    snprintf(hour, sizeof(hour), "%02ld:", lapse / 3600);
+  }
+  snprintf(time_str, sizeof(time_str), "```%s%02ld:%02ld [%s] %s```", hour,
+           (lapse / 60) % 60, lapse % 60, bar, ytpobj.duration);
+
+  // print the final message
+  snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,
+           "Now Playing:", text4, ytpobj.link, time_str);
 
   // finalize message into sendable format
   char header[2000];
@@ -830,9 +807,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
                         user_vc_obj *uobjp, char *guildid, char *textchannelid,
                         char *content, int wrong_vc, int has_user) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
 
   char message[9500];
@@ -932,9 +907,7 @@ void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                   char *guildid, char *textchannelid, char *content,
                   int wrong_vc, int has_user, int is_dj, int insert_index) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
 
   struct play_cmd_obj *pobj = malloc(sizeof(struct play_cmd_obj));
@@ -956,13 +929,9 @@ void seek_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                   char *guildid, char *textchannelid, char *content,
                   int wrong_vc, int has_user, int is_dj) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
-
   CHECK_SONG_PLAYING(vgt, dis, textchannelid)
 
   if (vgt->media->paused) {
@@ -1002,11 +971,8 @@ void shuffle_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                      char *guildid, char *textchannelid, int wrong_vc,
                      int has_user, int is_dj) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
 
   send_typing_indicator(dis, textchannelid);
@@ -1019,11 +985,8 @@ void clear_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                    char *guildid, char *textchannelid, int wrong_vc,
                    int has_user, int is_dj) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
 
   send_typing_indicator(dis, textchannelid);
@@ -1036,11 +999,8 @@ void remove_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                     char *guildid, char *textchannelid, char *content,
                     int wrong_vc, int has_user, int is_dj) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
 
   int remove_pos = strtol(content + 3, NULL, 10) - 1;
@@ -1056,11 +1016,8 @@ void pause_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                    char *guildid, char *textchannelid, int wrong_vc,
                    int has_user, int is_dj) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
 
   if (!(vgt->media->paused)) {
@@ -1076,11 +1033,8 @@ void resume_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                     char *guildid, char *textchannelid, int wrong_vc,
                     int has_user, int is_dj) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
 
   if (vgt->media->paused) {
@@ -1097,69 +1051,61 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
                         int wrong_vc, int has_user, int is_dj) {
 
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
+  CHECK_SONG_PLAYING(vgt, dis, textchannelid)
 
   char message[9500];
   message[0] = 0;
-  if (vgt->media && vgt->media->playing) {
-    log_debug("Sending timestamps");
-    youtube_page_object_t ytpobj;
-    sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj),
-                             sizeof(ytpobj), 0);
+  youtube_page_object_t ytpobj;
+  sbuf_peek_end_value_copy(&(vgt->media->song_queue), &(ytpobj), sizeof(ytpobj),
+                           0);
 
-    // check if youtube object is partially filled
-    if (ytpobj.description[0] == 0) {
-      complete_youtube_object_fields(&ytpobj);
-    }
-
-    // escape out descirption string
-    char text2[sizeof(ytpobj.description)];
-    escape_http_doublequote(ytpobj.description, sizeof(ytpobj.description),
-                            text2, sizeof(text2));
-    fix_string_ending(text2);
-
-    // escape out title string
-    char text3[sizeof(ytpobj.title)];
-    char text4[sizeof(ytpobj.title)];
-    escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3,
-                        sizeof(ytpobj.title));
-    escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
-
-    // Timestamps
-    cJSON *timestamp_json_arr = cJSON_CreateArray();
-    parse_description_timestamps(text2, timestamp_json_arr);
-
-    char message_body[6000];
-    message_body[0] = 0;
-
-    for (int i = 0; i < cJSON_GetArraySize(timestamp_json_arr); i++) {
-      cJSON *item = cJSON_GetArrayItem(timestamp_json_arr, i);
-      char *label_json =
-          cJSON_GetStringValue(cJSON_GetObjectItem(item, "label"));
-      // cJSON *time_json = cJSON_GetObjectItem(item, "time");
-
-      if (strlen(label_json) + strlen(message_body) + 30 >= 6000)
-        break;
-
-      char line_buf[1500];
-
-      snprintf(line_buf, 1500, "\\n**%d.** `%s`", i + 1, label_json);
-
-      strcat(message_body, line_buf);
-    }
-
-    cJSON_Delete(timestamp_json_arr);
-
-    // print the final message
-    snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,
-             "Timestamps:", text4, message_body, "");
-  } else {
-    snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_SIMPLE,
-             "Not currently playing a song!");
+  // check if youtube object is partially filled
+  if (ytpobj.description[0] == 0) {
+    complete_youtube_object_fields(&ytpobj);
   }
+
+  // escape out descirption string
+  char text2[sizeof(ytpobj.description)];
+  escape_http_doublequote(ytpobj.description, sizeof(ytpobj.description), text2,
+                          sizeof(text2));
+  fix_string_ending(text2);
+
+  // escape out title string
+  char text3[sizeof(ytpobj.title)];
+  char text4[sizeof(ytpobj.title)];
+  escape_http_newline(ytpobj.title, sizeof(ytpobj.title), text3,
+                      sizeof(ytpobj.title));
+  escape_http_doublequote(text3, sizeof(text3), text4, sizeof(text4));
+
+  // Timestamps
+  cJSON *timestamp_json_arr = cJSON_CreateArray();
+  parse_description_timestamps(text2, timestamp_json_arr);
+
+  char message_body[6000];
+  message_body[0] = 0;
+
+  for (int i = 0; i < cJSON_GetArraySize(timestamp_json_arr); i++) {
+    cJSON *item = cJSON_GetArrayItem(timestamp_json_arr, i);
+    char *label_json = cJSON_GetStringValue(cJSON_GetObjectItem(item, "label"));
+    // cJSON *time_json = cJSON_GetObjectItem(item, "time");
+
+    if (strlen(label_json) + strlen(message_body) + 30 >= 6000)
+      break;
+
+    char line_buf[1500];
+
+    snprintf(line_buf, 1500, "\\n**%d.** `%s`", i + 1, label_json);
+
+    strcat(message_body, line_buf);
+  }
+
+  cJSON_Delete(timestamp_json_arr);
+
+  // print the final message
+  snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "Timestamps:", text4,
+           message_body, "");
 
   // finalize message into sendable format
   char header[2000];
@@ -1179,16 +1125,10 @@ void skip_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
                             char *textchannelid, char *content, int wrong_vc,
                             int has_user, int is_dj) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
-
   CHECK_SONG_PLAYING(vgt, dis, textchannelid)
-
-  log_debug("Skipping to next timestamp!");
 
   if (vgt->media->paused) {
     vgt->media->paused = 0;
@@ -1205,8 +1145,6 @@ void skip_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   }
 
   long time_elapsed = vgt->media->current_song_time + ytpobj.start_time_offset;
-
-  log_debug("Current time: %d", time_elapsed);
 
   // escape out descirption string
   char description_parsed[sizeof(ytpobj.description)];
@@ -1226,8 +1164,6 @@ void skip_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
         cJSON_GetArrayItem(timestamp_json_arr, i - 1), "timestamp"));
     int next_timestamp = (int)cJSON_GetNumberValue(cJSON_GetObjectItem(
         cJSON_GetArrayItem(timestamp_json_arr, i), "timestamp"));
-
-    log_debug("Next: %d", next_timestamp);
 
     if (time_elapsed >= cur_timestamp && time_elapsed < next_timestamp) {
       seek_time = next_timestamp;
@@ -1258,13 +1194,9 @@ void seek_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
                             char *textchannelid, char *content, int wrong_vc,
                             int has_user, int is_dj) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
-
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
-
   CHECK_MEDIA_INITIALIZED(vgt, dis, textchannelid)
-
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
-
   CHECK_SONG_PLAYING(vgt, dis, textchannelid)
 
   if (vgt->media->paused) {
@@ -1362,6 +1294,9 @@ void help_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
       Shuffle queue:              `-shuffle`\\n\
       Seek music:                 `-seek [hour]:[mins]:[secs]`\\n\
           Example: `-seek 3:20` (goes to 3 minutes 20 seconds in the song)\\n\
+      Show Timestamps:            `-timestamps`\\n\
+      Seek to timestamp:          `-seekt [number]`\\n\
+      Skip current song in video: `-skipt`\\n\
       List commands:              `-help`",
       "");
   // }
