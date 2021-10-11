@@ -1101,10 +1101,10 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
     strcat(message_body, line_buf);
   }
 
-    if (!cJSON_GetArraySize(timestamp_json_arr))
-      strcat(message_body, "\\nNo timestamps found.");
+  if (!cJSON_GetArraySize(timestamp_json_arr))
+    strcat(message_body, "\\nNo timestamps found.");
 
-    cJSON_Delete(timestamp_json_arr);
+  cJSON_Delete(timestamp_json_arr);
 
   // print the final message
   snprintf(message, 9500, DISCORD_API_POST_BODY_MSG_EMBED, "Timestamps:", text4,
