@@ -129,6 +129,7 @@ void simple_send_file(discord_t *dis, char *file, char *filename,
   snprintf(buffer, strlen(header) + strlen(message) + 1000,
            "%s\r\n\r\n%s\r\n\r\n", header, message);
   simple_reconnect_send_raw(dis, buffer, strlen(buffer));
+  free(text);
 }
 
 void send_typing_indicator(discord_t *dis, char *textchannelid) {
@@ -1208,7 +1209,7 @@ void seek_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
   strtok_r(content, " ", &save_ptr);
   char *timestamp_str = strtok_r(NULL, " ", &save_ptr);
 
-  int timestamp_no = atoi(timestamp_str);
+  int timestamp_no = timestamp_str ? atoi(timestamp_str) : 0;
 
   if (timestamp_no == 0) {
     simple_send_msg(dis,
@@ -1491,7 +1492,7 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
       } else if (!strncasecmp(content + 1, "pn ", 3)) {
         play_command(vgt, dis, &uobj, guildid, textchannelid, content + 1,
                      wrong_vc, has_user, is_dj, 1);
-      } else if (!strncasecmp(content + 1, "log", 4)) {
+      } else if (!strncasecmp(content + 1, "log", 3)) {
         log_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc, has_user,
                     is_dj, LOG_FILE);
       } else if (!strncasecmp(content + 1, "timestamps", 10)) {

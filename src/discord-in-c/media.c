@@ -435,11 +435,10 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
             (long)((end.tv_nsec - start.tv_nsec) / 1000) + secediff * 1000000;
 
         if (usecdiff > 25000 || usecdiff < 15000) {
-          log_trace(
-              "WHOOPS...Abnormal Frame: "
-              "........................................................... "
-              "%ld\n",
-              usecdiff);
+          log_trace("Audio Sender Abnormal Frame: "
+                    "... "
+                    "%ld\n",
+                    usecdiff);
         }
 
         start = end;
@@ -539,8 +538,10 @@ void play_youtube_url(char *youtube_link, int time_offset, char *key_str,
     char *new_argv[50] = {
         "ffmpeg",
 
+        "-hide_banner",
+
         "-loglevel",
-        (log_level_env ? atoi(log_level_env) : 0 > 0) ? "quiet" : "info",
+        (log_level_env ? atoi(log_level_env) : 0 > 0) ? "info" : "error",
 
         "-ss",
         star_time_str,
