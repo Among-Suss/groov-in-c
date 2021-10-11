@@ -10,6 +10,9 @@ typedef struct discord_t {
   SSL *https_api_ssl;
   SSL *gateway_ssl;
   sem_t gateway_writer_mutex;
+
+  sem_t https_writer_mutex;
+
   usercallback_f gateway_callback;
   pthread_t gateway_listen_tid;
   int heartbeating;

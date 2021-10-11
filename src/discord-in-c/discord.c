@@ -18,6 +18,7 @@ discord_t *init_discord(char *bot_token, char *discord_intent) {
   memset(discord_data, 0, sizeof(discord_t));
 
   sem_init(&(discord_data->gateway_writer_mutex), 0, 1);
+  sem_init(&(discord_data->https_writer_mutex), 0, 1);
 
   StrMap *sm = sm_new(DISCORD_MAX_VOICE_CONNECTIONS);
   discord_data->voice_gateway_map = sm;
@@ -64,6 +65,8 @@ void free_voice_gateway(voice_gateway_t *vgt) {
   if (vgt->voice_ssl)
     disconnect_and_free_ssl(vgt->voice_ssl);
 
+  vgt->voice_ssl = 0;
+
   sm_delete(vgt->data_dictionary);
   free(vgt);
 }
@@ -83,9 +86,11 @@ void free_discord(discord_t *discord) {
   if (discord->https_api_ssl) {
     disconnect_and_free_ssl(discord->https_api_ssl);
   }
+  discord->https_api_ssl = 0;
   if (discord->gateway_ssl) {
     disconnect_and_free_ssl(discord->gateway_ssl);
   }
+  discord->gateway_ssl = 0;
 
   sm_enum(discord->voice_gateway_map, enum_callback_delete, NULL);
 
@@ -275,6 +280,8 @@ void internal_gateway_callback(SSL *ssl, void *state, char *msg,
     discord->heartbeating = 0;
 
     disconnect_and_free_ssl(discord->gateway_ssl);
+    discord->gateway_ssl = 0;
+
     connect_gateway(discord);
     return;
   }
@@ -576,6 +583,8 @@ void cancel_voice_gateway_reconnect(voice_gateway_t *vgt, char *guild_id) {
   if (vgt->voice_ssl)
     disconnect_and_free_ssl(vgt->voice_ssl);
 
+  vgt->voice_ssl = 0;
+
   sm_delete(vgt->data_dictionary);
   free(vgt);
 
@@ -656,6 +665,8 @@ void reconnect_voice(voice_gateway_t *vgt) {
       vgt->data_dictionary, DISCORD_GATEWAY_VOICE_PORT, port, MAX_PORT_LEN);
 
   disconnect_and_free_ssl(vgt->voice_ssl);
+  vgt->voice_ssl = 0;
+
   SSL *voice_ssl = establish_websocket_connection(
       hostname, hostname_len, port, port_len, DISCORD_VOICE_GT_URI,
       strlen(DISCORD_VOICE_GT_URI));

@@ -69,14 +69,22 @@ sem_t play_cmd_mutex;
 /*                              HELPER FUNCTIONS */
 /* --------------------------------------------------------------------------*/
 
+void simple_reconnect_send_raw(discord_t *dis, char *buffer, int buffer_len) {
+  sem_wait(&(dis->https_writer_mutex));
+
+  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
+                DISCORD_PORT, strlen(DISCORD_PORT));
+  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+
+  sem_post(&(dis->https_writer_mutex));
+}
+
 /* Simple sending message to discord
  *
  *
  *
  */
 void simple_send_msg(discord_t *dis, char *text, char *textchannelid) {
-  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                DISCORD_PORT, strlen(DISCORD_PORT));
   char message[4000];
   snprintf(message, 4000, DISCORD_API_POST_BODY_MSG_SIMPLE, text);
   char header[2000];
@@ -84,7 +92,7 @@ void simple_send_msg(discord_t *dis, char *text, char *textchannelid) {
            (int)strlen(message));
   char buffer[5000];
   snprintf(buffer, 5000, "%s\r\n\r\n%s\r\n\r\n", header, message);
-  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+  simple_reconnect_send_raw(dis, buffer, strlen(buffer));
 }
 
 /**
@@ -108,8 +116,6 @@ void simple_send_file(discord_t *dis, char *file, char *filename,
   text[text_length] = '\0';
   fclose(fp);
 
-  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                DISCORD_PORT, strlen(DISCORD_PORT));
   char message[length + 500];
   char filename_section[strlen(filename) + 20];
   snprintf(filename_section, sizeof(filename_section), "filename=\"%s\"",
@@ -122,18 +128,16 @@ void simple_send_file(discord_t *dis, char *file, char *filename,
   char buffer[strlen(header) + strlen(message) + 1000];
   snprintf(buffer, strlen(header) + strlen(message) + 1000,
            "%s\r\n\r\n%s\r\n\r\n", header, message);
-  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+  simple_reconnect_send_raw(dis, buffer, strlen(buffer));
 }
 
 void send_typing_indicator(discord_t *dis, char *textchannelid) {
-  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                DISCORD_PORT, strlen(DISCORD_PORT));
   char header[1000];
   snprintf(header, sizeof(header), DISCORD_API_POST_TYPING, textchannelid,
            bottoken);
   char buffer[1100];
   snprintf(buffer, sizeof(buffer), "%s\r\n\r\n\r\n\r\n", header);
-  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+  simple_reconnect_send_raw(dis, buffer, strlen(buffer));
 }
 
 /* Helper Functions for sending strings in JSON
@@ -737,9 +741,7 @@ void desc_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   snprintf(buffer, sizeof(buffer), "%s\r\n\r\n%s\r\n\r\n", header, message);
 
   // send message
-  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                DISCORD_PORT, strlen(DISCORD_PORT));
-  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+  simple_reconnect_send_raw(dis, buffer, strlen(buffer));
 }
 
 void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
@@ -798,9 +800,7 @@ void now_playing_command(voice_gateway_t *vgt, discord_t *dis,
   snprintf(buffer, 13000, "%s\r\n\r\n%s\r\n\r\n", header, message);
 
   // send the message using ssl
-  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                DISCORD_PORT, strlen(DISCORD_PORT));
-  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+  simple_reconnect_send_raw(dis, buffer, strlen(buffer));
 }
 
 void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
@@ -898,9 +898,7 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
   snprintf(buffer, 13000, "%s\r\n\r\n%s\r\n\r\n", header, message);
 
   // send message
-  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                DISCORD_PORT, strlen(DISCORD_PORT));
-  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+  simple_reconnect_send_raw(dis, buffer, strlen(buffer));
 }
 
 void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
@@ -1118,9 +1116,7 @@ void timestamps_command(voice_gateway_t *vgt, discord_t *dis,
   snprintf(buffer, 13000, "%s\r\n\r\n%s\r\n\r\n", header, message);
 
   // send the message using ssl
-  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                DISCORD_PORT, strlen(DISCORD_PORT));
-  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+  simple_reconnect_send_raw(dis, buffer, strlen(buffer));
 }
 
 void skip_timestamp_command(voice_gateway_t *vgt, discord_t *dis,
@@ -1312,9 +1308,7 @@ void help_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   snprintf(buffer, 13000, "%s\r\n\r\n%s\r\n\r\n", header, message);
 
   // send the message using ssl
-  ssl_reconnect(dis->https_api_ssl, DISCORD_HOST, strlen(DISCORD_HOST),
-                DISCORD_PORT, strlen(DISCORD_PORT));
-  send_raw(dis->https_api_ssl, buffer, strlen(buffer));
+  simple_reconnect_send_raw(dis, buffer, strlen(buffer));
 }
 
 /* ----------------------------- HELPER COMMANDS ---------------------------- */
