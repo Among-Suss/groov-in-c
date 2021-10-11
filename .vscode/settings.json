@@ -34,6 +34,7 @@
         "easy_fetch.c": "c",
         "easy_fetch.h": "c",
         "youtube_fetch.h": "c",
-        "*.tcc": "c"
+        "*.tcc": "c",
+        "log.h": "c"
     }
 }

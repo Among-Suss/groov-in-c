@@ -1317,10 +1317,10 @@ void help_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
 void log_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                  char *guildid, char *textchannelid, int wrong_vc, int has_user,
                  int is_dj, char *file) {
-  if (DEBUG) {
+  if (LOGGING) {
     simple_send_file(dis, file, file, textchannelid);
   } else {
-    log_warn("Set DEBUG environment variable to enable sending logs");
+    fprintf(stdout, "Please compile with -DLOGGING to enable logging");
   }
 }
 
