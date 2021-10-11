@@ -2,9 +2,14 @@
 ![Docker Build](https://github.com/Among-Suss/groov-in-c/actions/workflows/docker-build.yml/badge.svg)
 ![Parser Checks](https://github.com/Among-Suss/groov-in-c/actions/workflows/youtube-checks.yml/badge.svg)
 
-An easy to host Discord music bot written in C.
+A small, fast, easy to host Discord music bot written in C.
 
-Can be easily hosted for free with any extra server or database requirements, even by those without any technical knowledge.
+Why groov-in-c?
+1. Easily host for free (see Heroku hosting below). Minimal technical knowledge required.
+2. No secondary database/media server required
+3. Low resource requirement, minimal CPU usage.
+4. Self contained with minimal dependencies. (Python 3 is required for youtube-dl and ffmpeg is for decoding)
+5. Supports Docker. Supports arm64 platform (easily deploy on Android using termux proot ubuntu)
 
 ## Table of contents
 
