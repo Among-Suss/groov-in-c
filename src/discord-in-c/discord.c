@@ -857,6 +857,145 @@ connect_voice_gateway(discord_t *discord, char *guild_id, char *channel_id,
 
 // END OFVOICE GATEWAY HANDLER FUNCTIONS ------------------
 
+
+
+
+// TIME SLOT WAITER FUNCTIONS
+
+typedef struct {
+#if defined HAVE_MACH_ABSOLUTE_TIME
+  /* Apple */
+  mach_timebase_info_data_t tbinfo;
+  uint64_t target;
+#elif defined HAVE_CLOCK_GETTIME && defined CLOCK_REALTIME &&                  \
+    defined HAVE_NANOSLEEP
+  /* try to use POSIX monotonic clock */
+  int initialized;
+  clockid_t clock_id;
+  struct timespec target;
+#else
+  /* fall back to the old non-monotonic gettimeofday() */
+  int initialized;
+  struct timeval target;
+#endif
+} time_slot_wait_t;
+
+void init_time_slot_wait_1(time_slot_wait_t *pt) {
+  memset(pt, 0, sizeof(time_slot_wait_t));
+}
+
+/*
+ * Wait for the next time slot, which begins delta nanoseconds after the
+ * start of the previous time slot, or in the case of the first call at
+ * the time of the call.  delta must be in the range 0..999999999.
+ */
+void wait_for_time_slot_1(unsigned long int delta, time_slot_wait_t *state) {
+  
+#if defined HAVE_MACH_ABSOLUTE_TIME
+  /* Apple */
+
+  if (state->tbinfo.numer == 0) {
+    mach_timebase_info(&(state->tbinfo));
+    state->target = mach_absolute_time();
+  } else {
+    state->target +=
+        state->tbinfo.numer == state->tbinfo.denom
+            ? (uint64_t)delta
+            : (uint64_t)delta * state->tbinfo.denom / state->tbinfo.numer;
+    mach_wait_until(state->target);
+  }
+#elif defined HAVE_CLOCK_GETTIME && defined CLOCK_REALTIME &&                  \
+    defined HAVE_NANOSLEEP
+  /* try to use POSIX monotonic clock */
+
+  if (!state->initialized) {
+#if defined CLOCK_MONOTONIC && defined _POSIX_MONOTONIC_CLOCK &&               \
+    _POSIX_MONOTONIC_CLOCK >= 0
+    if (
+#if _POSIX_MONOTONIC_CLOCK == 0
+        sysconf(_SC_MONOTONIC_CLOCK) > 0 &&
+#endif
+        clock_gettime(CLOCK_MONOTONIC, &state->target) == 0) {
+      state->clock_id = CLOCK_MONOTONIC;
+      state->initialized = 1;
+    } else
+#endif
+        if (clock_gettime(CLOCK_REALTIME, &state->target) == 0) {
+      state->clock_id = CLOCK_REALTIME;
+      state->initialized = 1;
+    }
+  } else {
+    state->target.tv_nsec += delta;
+    
+    while (state->target.tv_nsec >= 1000000000) {
+      ++state->target.tv_sec;
+      state->target.tv_nsec -= 1000000000;
+    }
+#if defined HAVE_CLOCK_NANOSLEEP && defined _POSIX_CLOCK_SELECTION &&          \
+    _POSIX_CLOCK_SELECTION > 0
+    clock_nanosleep(state->clock_id, TIMER_ABSTIME, &state->target, NULL);
+#else
+    {
+      /* convert to relative time */
+      struct timespec rel;
+      if (clock_gettime(clock_id, &rel) == 0) {
+        rel.tv_sec = state->target.tv_sec - rel.tv_sec;
+        rel.tv_nsec = state->target.tv_nsec - rel.tv_nsec;
+        if (rel.tv_nsec < 0) {
+          rel.tv_nsec += 1000000000;
+          --rel.tv_sec;
+        }
+        if (rel.tv_sec >= 0 && (rel.tv_sec > 0 || rel.tv_nsec > 0)) {
+          nanosleep(&rel, NULL);
+        }
+      }
+    }
+#endif
+  }
+#else
+  /* fall back to the old non-monotonic gettimeofday() */
+  struct timeval now;
+  int nap;
+
+  if (!state->initialized) {
+    gettimeofday(&state->target, NULL);
+    state->initialized = 1;
+  } else {
+    delta /= 1000;
+    state->target.tv_usec += delta;
+    if (state->target.tv_usec >= 1000000) {
+      ++state->target.tv_sec;
+      state->target.tv_usec -= 1000000;
+    }
+
+    gettimeofday(&now, NULL);
+    nap = state->target.tv_usec - now.tv_usec;
+    if (now.tv_sec != state->target.tv_sec) {
+      if (now.tv_sec > state->target.tv_sec)
+        nap = 0;
+      else if (state->target.tv_sec - now.tv_sec == 1)
+        nap += 1000000;
+      else
+        nap = 1000000;
+    }
+    if (nap > delta)
+      nap = delta;
+    if (nap > 0) {
+#if defined HAVE_USLEEP
+      usleep(nap);
+#else
+      struct timeval timeout;
+      timeout.tv_sec = 0;
+      timeout.tv_usec = nap;
+      select(0, NULL, NULL, NULL, &timeout);
+#endif
+    }
+  }
+#endif
+}
+
+
+
 // HEARTBEAT FUNCTIONS....
 
 void *threaded_gateway_heartbeat(void *ptr) {
@@ -867,11 +1006,18 @@ void *threaded_gateway_heartbeat(void *ptr) {
 
   SSL *ssl = discord->gateway_ssl;
   useconds_t heartbeat_interval = discord->heartbeat_interval_usec;
+  unsigned long int hbi_nanosec = ((unsigned long int) heartbeat_interval) * 1000;
+
+  time_slot_wait_t time_state;
+  init_time_slot_wait_1(&time_state);
+  wait_for_time_slot_1(hbi_nanosec, &time_state);
+
+  fprintf(stdout, "Time slot wait %ld nano seconds %ld microseconds \n", hbi_nanosec, heartbeat_interval);
 
   sem_t *websock_writer_mutex = &(discord->gateway_writer_mutex);
 
   while (1) {
-    usleep(heartbeat_interval);
+    wait_for_time_slot_1(hbi_nanosec, &time_state);
     sem_wait(websock_writer_mutex);
     send_websocket(ssl, heartbeat_str_p, msglen, WEBSOCKET_OPCODE_MSG);
     sem_post(websock_writer_mutex);
@@ -886,11 +1032,18 @@ void *threaded_voice_gateway_heartbeat(void *ptr) {
 
   SSL *ssl = voice->voice_ssl;
   useconds_t heartbeat_interval = voice->heartbeat_interval_usec;
+  unsigned long int hbi_nanosec = ((unsigned long int) heartbeat_interval) * 1000;
+
+  time_slot_wait_t time_state;
+  init_time_slot_wait_1(&time_state);
+  wait_for_time_slot_1(hbi_nanosec, &time_state);
+
+  fprintf(stdout, "Time slot wait %ld nano seconds %ld microseconds \n", hbi_nanosec, heartbeat_interval);
 
   sem_t *websock_writer_mutex = &(voice->voice_writer_mutex);
 
   while (1) {
-    usleep(heartbeat_interval);
+    wait_for_time_slot_1(hbi_nanosec, &time_state);
     sem_wait(websock_writer_mutex);
     send_websocket(ssl, heartbeat_str_p, msglen, WEBSOCKET_OPCODE_MSG);
     sem_post(websock_writer_mutex);

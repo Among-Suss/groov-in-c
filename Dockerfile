@@ -11,6 +11,6 @@ USER root
 COPY . /app
 WORKDIR /app/src/discord-in-c/
 
-RUN make -B test2
+RUN make -B sanitize
 
 CMD ["./test2"]
