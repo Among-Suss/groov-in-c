@@ -428,20 +428,26 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
           fprintf(stderr, "ERROR: media player obj is NULL.\n");
         }
 
+        // no need to log abnormal frame anymore
+        /*
+        
         // timer to verify that sender is on time
         clock_gettime(clock_id, &end);
         long secediff = (long int)end.tv_sec - start.tv_sec;
         long usecdiff =
             (long)((end.tv_nsec - start.tv_nsec) / 1000) + secediff * 1000000;
 
+        
         if (usecdiff > 25000 || usecdiff < 15000) {
           log_trace("Audio Sender Abnormal Frame: "
                     "... "
                     "%ld\n",
                     usecdiff);
         }
+        
 
         start = end;
+        */
 
         /* convert number of 48 kHz samples to nanoseconds without overflow */
         wait_for_time_slot(samples * 62500 / 3, &state);
