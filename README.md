@@ -220,7 +220,8 @@ Either set the env vars by using the export command or run with the env vars dec
 
 Make sure to be in the directory groov-in-c/src/discord-in-c
 ```
-TOKEN="mytoken" BOT_NAME="my-groov-in-c" ./test2
+TOKEN="mytoken" BOT_NAME="my-groov-in-c" BOT_PREFIX="-" ./test2
+
 ```
 For more details on development, see [DOCUMENTATION.md](DOCUMENTATION.md)
 ## 
