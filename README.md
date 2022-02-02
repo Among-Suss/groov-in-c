@@ -1,10 +1,12 @@
 # groov-in-c
+
 ![Docker Build](https://github.com/Among-Suss/groov-in-c/actions/workflows/docker-build.yml/badge.svg)
 ![Parser Checks](https://github.com/Among-Suss/groov-in-c/actions/workflows/youtube-checks.yml/badge.svg)
 
 A small, fast, easy to host Discord music bot written in C.
 
 Why groov-in-c?
+
 1. Easily host for free (see Heroku hosting below). Minimal technical knowledge required.
 2. No secondary database/media server required
 3. Low resource requirement, minimal CPU usage, low memory footprint (disable address sanitizer for better memory usage)
@@ -13,18 +15,17 @@ Why groov-in-c?
 
 ## Table of contents
 
-
- - [Hosting](#hosting)
- - [Using the bot](#using-the-bot)
- - [FAQ](#faq)
- - [Build Instructions](#build-instructions)
-
+- [Hosting](#hosting)
+- [Using the bot](#using-the-bot)
+- [FAQ](#faq)
+- [Build Instructions](#build-instructions)
 
 ## Hosting
 
 Prerequisites:
- - A Discord bot token: https://discordjs.guide/preparations/setting-up-a-bot-application.html#creating-your-bot/
- - A free Heroku account: https://signup.heroku.com/
+
+- A Discord bot token: https://discordjs.guide/preparations/setting-up-a-bot-application.html#creating-your-bot/
+- A free Heroku account: https://signup.heroku.com/
 
 Note: By default the bot will only run for 22 days a month. Check out the first question in the [FAQ](#faq) if you want it to always be online.
 
@@ -32,63 +33,74 @@ Note: By default the bot will only run for 22 days a month. Check out the first 
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Among-Suss/groov-in-c/tree/main)
 
- - Enter your token and a unique bot name (the name is only for options; it won't affect the bot's display name)
- - The BOT_NAME field should NOT contain any spaces. for example: my-groov-in-c-bot
+- Enter your token and a unique bot name (the name is only for options; it won't affect the bot's display name)
+- The BOT_NAME field should NOT contain any spaces. for example: my-groov-in-c-bot
 
 ### 2. Activate Bot
+
 1. Go to the app through the Heroku Dashboard.
 2. Go to the **Resources Tab**.
-3. Under the **Free Dynos** section, click on the pencil icon, turn on the switch (it should be on the right side), and click **Confirm**. 
-    * *If it says "no worker", wait a couple minutes then refresh the page.*
+3. Under the **Free Dynos** section, click on the pencil icon, turn on the switch (it should be on the right side), and click **Confirm**.
+   - _If it says "no worker", wait a couple minutes then refresh the page._
 4. Your Bot should be online!
 
 ### 3. Add to server
 
 1. Go to your **Discord Developer Console** and find your bot application.
-2. From the **OAuth2** tab, check *bot* under scopes and the following permissions under **Bot Permissions**.
-    - General Permissions
-        - View Channels
-    - Text Permissions
-        - Send Messages
-        - Embed Links
-        - Attach Files
-        - Read Message History
-        - Add Reactions
-        - Use Slash Commands
-     - Voice Permissions
-        - Connect
-        - Speak
-        - Video
-        - Use Voice Activity
+2. From the **OAuth2** tab, check _bot_ under scopes and the following permissions under **Bot Permissions**.
+   - General Permissions
+     - View Channels
+   - Text Permissions
+     - Send Messages
+     - Embed Links
+     - Attach Files
+     - Read Message History
+     - Add Reactions
+     - Use Slash Commands
+   - Voice Permissions
+     - Connect
+     - Speak
+     - Video
+     - Use Voice Activity
 3. Go to link from the **Scopes** section and add the bot to your server.
 
 ## Using the bot
 
 ### Configuring the prefix
+
 The default prefix for the bot is "-". The prefix can be changed at runtime with the command:
+
 ```
 [prefix]prefix newprefix
 ```
+
 for example:
+
 ```
 -prefix !
 ```
+
 This will change the prefix from - to !
 
 This change will only last until the bot gets restarted. To make the change permanent, add a prefix configuration to the bot configuration.
 
 Add the following text to your welcome channel's topic (description), or any other channel that the bot has permission to view.
+
 ```
 @[bot-name] prefix[myprefix] end
 ```
+
 Replace [bot-name] with what you put in your BOT_NAME on heroku or environment variable.
 for example:
+
 ```
 @groov-in-c prefix! end
 ```
+
 This will change the default prefix to ! for the bot named groove-in-c. This configuration is applied when the bot starts or reboots. To apply changes to the bot without rebooting, also use the -prefix command as well.
 
 ### List of commands
+
 Commands are written in the following format
 [prefix]command [arguments]
 
@@ -117,6 +129,7 @@ Help                        -help
 
 The -p command takes either a youtube link or search query
 For example:
+
 ```
 -p ghibli jazz playlist
 -p https://youtu.be/h03hS1qGSLA
@@ -126,11 +139,15 @@ For example:
 These are all valid. Playlists can be queued. If a song inside a playlist is queued, the queue will start from the song's index.
 
 ### Bot configuration
+
 Bot server specific configuration can be applied by putting the configuration string in the server's welcome channel topic. The configuration string follows a very specific syntax.
+
 ```
 @[bot-name] config[value] config[value] ... ... end
 ```
+
 List of possible configurations:
+
 ```
 Prefix:
     config      - prefix
@@ -143,17 +160,18 @@ DJ Roles (Permission to control music):
     example     - @groov-in-c djroles"DJ","admin","Music Guy" end
     note        - if djroles is not specified, everyone will be able to play music
 ```
+
 More configurations may be added in the future.
 
 ## FAQ
 
 **Q**: Why did my bot stopped after a couple of weeks?
 
-**A**: With the Heroku free tier, you only get 550 total hours of run time. If you want it to be always online, you can increase this number to 1000 hours by adding your credit card and [verifying your account](https://devcenter.heroku.com/articles/account-verification#:~:text=Go%20to%20your%20Account%20Settings,Click%20Add%20Credit%20Card%20.). Since 1000 hours is more than a month, Heroku won't charge you ***as long as you only have one application running***. If you are already using Heroku for other applications, make sure you pay attention to your total hours!
+**A**: With the Heroku free tier, you only get 550 total hours of run time per month. If you want it to be always online, you can increase this number to 1000 hours by adding your credit card and [verifying your account](https://devcenter.heroku.com/articles/account-verification#:~:text=Go%20to%20your%20Account%20Settings,Click%20Add%20Credit%20Card%20.). Since 1000 hours is more than a month, Heroku won't charge you **_as long as you only have one application running_**. If you are already using Heroku for other applications, make sure you pay attention to your total hours!
 
 ##
 
-**Q**: Why is the play command *sometimes* failing?
+**Q**: Why is the play command _sometimes_ failing?
 
 **A**: There's always a very small chance that the command would fail due to how youtube-dl works, but playing the song again should work.
 
@@ -170,58 +188,73 @@ More configurations may be added in the future.
 **A**: For some reason, the Discord API will randomly disconnect the bot, which can take a moment to reconnect.
 
 ## Build Instructions
+
 You can just run this repository through docker if that's your thing. This program only supports linux, although it should run perfectly fine through docker on windows. It may be possible to get working on Windows using cygwin with some modification (not covered here, you will need to make sure all code is POSIX compliant).
 
 ### Environment Variables
-| Name | Description | Default |
-|------|-------------|---------|
-| `TOKEN` | Discord bot token | *required* |
-| `BOT_PREFIX` | Bot prefix | `-` |
-| `BOT_NAME` | Bot config name | `groov-in-c` |
 
+| Name         | Description       | Default      |
+| ------------ | ----------------- | ------------ |
+| `TOKEN`      | Discord bot token | _required_   |
+| `BOT_PREFIX` | Bot prefix        | `-`          |
+| `BOT_NAME`   | Bot config name   | `groov-in-c` |
 
 ### Prerequisites
 
 #### Ubuntu and Debian
+
 1. Install all the build and runtime dependencies
+
 ```
 sudo apt-get install make gcc libssl-dev libsodium-dev libopus-dev libogg-dev libcurl4-openssl-dev ffmpeg python3-pip
 ```
 
 2. Install youtube-dl with pip since Ubuntu's version is outdated
+
 ```
 sudo pip install youtube-dl
 ```
 
 #### Arch Linux
+
 Install all the build and runtime dependencies
+
 ```
 sudo pacman -Syu
 sudo pacman -S base-devel openssl libsodium libogg opus python ffmpeg youtube-dl python-requests curl libcurl-compat libcurl-gnutls
 ```
 
 ### Building
+
 1. Make sure you are in the directory groov-in-c/src/discord-in-c
 2. Run make
+
 ```
 make test2
 ```
+
 If you prefer to have address sanitizer to debug memory related crashes use
+
 ```
 make sanitize
 ```
 
 ### Running
+
 There are two environment variables that the bot needs
+
 1. TOKEN - Discord bot token generated in the discord developer portal
 2. BOT_NAME - the name of the bot. NOT the display name. This name is the identifier for use in configuring server-specific configs
 
 Either set the env vars by using the export command or run with the env vars declared
 
 Make sure to be in the directory groov-in-c/src/discord-in-c
+
 ```
 TOKEN="mytoken" BOT_NAME="my-groov-in-c" BOT_PREFIX="-" ./test2
 
 ```
+
 For more details on development, see [DOCUMENTATION.md](DOCUMENTATION.md)
-## 
+
+##
