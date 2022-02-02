@@ -347,6 +347,10 @@ void *threaded_play_cmd(void *ptr) {
       if (insert_queue_ret_error) {
         fprintf(stdout, "ERROR: youtube-dl unable to queue song.\n");
       }
+    } else if (!strncasecmp(pobj->content, "https://soundcloud.com/", 23)) {
+      insert_queue_ret_error =
+          insert_queue_soundcloud(pobj->vgt->media, pobj->content, title,
+                                  sizeof(title), pobj->insert_index);
     } else {
       fprintf(stdout, "Invalid youtube url provided.\n");
     }

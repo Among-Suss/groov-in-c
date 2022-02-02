@@ -38,6 +38,9 @@
 #define YOUTUBE_WEBPAGE_URL_SIZE 2048
 #define MAX_URL_LEN_MEDIA 16384
 
+#define FORMAT_M4A "bestaudio[ext=m4a]"
+#define FORMAT_MP3 "bestaudio[ext=mp3]"
+
 typedef struct ffmpeg_process_waiter_t ffmpeg_process_waiter_t;
 
 typedef struct media_player_t media_player_t;
@@ -62,6 +65,10 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query,
 
 void insert_queue_ytb_partial(media_player_t *media, char *id, char *title,
                               char *duration, int length);
+
+int insert_queue_soundcloud(media_player_t *media, char *snd_cld_query,
+                            char *return_title, int return_title_len,
+                            int index);
 
 void complete_youtube_object_fields(youtube_page_object_t *ytobjptr);
 

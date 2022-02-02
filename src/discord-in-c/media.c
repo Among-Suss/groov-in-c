@@ -836,7 +836,8 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og,
   return 0;
 }
 
-int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
+int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr,
+                         char *format) {
   int func_retval = 0;
   int pipeids[2];
 
@@ -861,7 +862,7 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
     argv[5] = "--get-duration";
     argv[6] = "-g";
     argv[7] = "-f";
-    argv[8] = "bestaudio[ext=m4a]";
+    argv[8] = format;
     argv[9] = query;
     argv[10] = 0;
 
@@ -971,7 +972,7 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query,
   youtube_page_object_t ytobj = {0};
 
   strncpy(ytobj.query, ydl_query, sizeof(ytobj.query) - 2);
-  int ret = get_youtube_vid_info(ydl_query, &ytobj);
+  int ret = get_youtube_vid_info(ydl_query, &ytobj, FORMAT_M4A);
 
   if (!ret) {
     if (index == -1) {
@@ -1008,9 +1009,38 @@ void insert_queue_ytb_partial(media_player_t *media, char *id, char *title,
   sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
 }
 
+int insert_queue_soundcloud(media_player_t *media, char *sc_query,
+                            char *return_title, int return_title_len,
+                            int index) {
+  media->skippable = 1;
+
+  sem_wait(&(media->insert_song_mutex)); // necessary to fix -leave cmd
+
+  youtube_page_object_t sc_obj = {0};
+
+  strncpy(sc_obj.query, sc_query, sizeof(sc_obj.query) - 2);
+  int ret = get_youtube_vid_info(sc_query, &sc_obj, FORMAT_MP3);
+
+  if (!ret) {
+    if (index == -1) {
+      sbuf_insert_front_value((&(media->song_queue)), &sc_obj, sizeof(sc_obj));
+    } else if (index > 0) {
+      int queue_size = media->song_queue.size;
+      int effective_index = index > queue_size ? queue_size : index;
+      sbuf_insert_value_position_from_back((&(media->song_queue)), &sc_obj,
+                                           sizeof(sc_obj), effective_index);
+    }
+  }
+
+  sem_post(&(media->insert_song_mutex));
+
+  strncpy(return_title, sc_obj.title, return_title_len - 1);
+  return (!ret) - 1;
+}
+
 // finish object evaluation for necessary informations
 void complete_youtube_object_fields(youtube_page_object_t *ytobjptr) {
-  get_youtube_vid_info(ytobjptr->link, ytobjptr);
+  get_youtube_vid_info(ytobjptr->link, ytobjptr, FORMAT_M4A);
 }
 
 void seek_media_player(media_player_t *media, int time_in_seconds) {
