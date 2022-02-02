@@ -38,6 +38,9 @@
 #define YOUTUBE_WEBPAGE_URL_SIZE 2048
 #define MAX_URL_LEN_MEDIA 16384
 
+#define PLATFORM_YOUTUBE_ID 0
+#define PLATFORM_SOUNDCLOUD_ID 1
+
 #define FORMAT_M4A "bestaudio[ext=m4a]"
 #define FORMAT_MP3 "bestaudio[ext=mp3]"
 

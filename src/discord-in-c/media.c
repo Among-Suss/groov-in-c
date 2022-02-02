@@ -837,7 +837,7 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og,
 }
 
 int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr,
-                         char *format) {
+                         int platform) {
   int func_retval = 0;
   int pipeids[2];
 
@@ -862,7 +862,7 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr,
     argv[5] = "--get-duration";
     argv[6] = "-g";
     argv[7] = "-f";
-    argv[8] = format;
+    argv[8] = platform == PLATFORM_YOUTUBE_ID ? FORMAT_M4A : FORMAT_MP3;
     argv[9] = query;
     argv[10] = 0;
 
@@ -924,10 +924,18 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr,
   *duration = 0;
   duration++;
 
+  ytobjptr->platform = platform;
+
   strncpy(ytobjptr->title, str, sizeof(ytobjptr->title) - 2);
   strncpy(ytobjptr->audio_url, audio_url, sizeof(ytobjptr->audio_url) - 2);
-  snprintf(ytobjptr->link, sizeof(ytobjptr->link),
-           "https://www.youtube.com/watch?v=%s", uid);
+
+  if (platform == PLATFORM_YOUTUBE_ID) {
+    snprintf(ytobjptr->link, sizeof(ytobjptr->link),
+             "https://www.youtube.com/watch?v=%s", uid);
+  } else if (platform == PLATFORM_SOUNDCLOUD_ID) {
+    snprintf(ytobjptr->link, sizeof(ytobjptr->link), query);
+  }
+
   strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description) - 2);
   strncpy(ytobjptr->duration, duration, sizeof(ytobjptr->duration) - 2);
 
@@ -972,7 +980,7 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query,
   youtube_page_object_t ytobj = {0};
 
   strncpy(ytobj.query, ydl_query, sizeof(ytobj.query) - 2);
-  int ret = get_youtube_vid_info(ydl_query, &ytobj, FORMAT_M4A);
+  int ret = get_youtube_vid_info(ydl_query, &ytobj, PLATFORM_YOUTUBE_ID);
 
   if (!ret) {
     if (index == -1) {
@@ -1019,7 +1027,7 @@ int insert_queue_soundcloud(media_player_t *media, char *sc_query,
   youtube_page_object_t sc_obj = {0};
 
   strncpy(sc_obj.query, sc_query, sizeof(sc_obj.query) - 2);
-  int ret = get_youtube_vid_info(sc_query, &sc_obj, FORMAT_MP3);
+  int ret = get_youtube_vid_info(sc_query, &sc_obj, PLATFORM_SOUNDCLOUD_ID);
 
   if (!ret) {
     if (index == -1) {
@@ -1040,7 +1048,7 @@ int insert_queue_soundcloud(media_player_t *media, char *sc_query,
 
 // finish object evaluation for necessary informations
 void complete_youtube_object_fields(youtube_page_object_t *ytobjptr) {
-  get_youtube_vid_info(ytobjptr->link, ytobjptr, FORMAT_M4A);
+  get_youtube_vid_info(ytobjptr->link, ytobjptr, PLATFORM_YOUTUBE_ID);
 }
 
 void seek_media_player(media_player_t *media, int time_in_seconds) {

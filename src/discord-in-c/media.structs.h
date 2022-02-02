@@ -14,6 +14,7 @@ typedef struct youtube_page_object_t {
   char duration[100];
   int length_in_seconds;
   int start_time_offset;
+  int platform;
 } youtube_page_object_t;
 
 typedef struct media_player_t {
