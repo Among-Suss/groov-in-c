@@ -463,19 +463,19 @@ void *threaded_play_cmd(void *ptr) {
     }
   } else {
     fprintf(stdout, "Query provided as a search token.\n");
-    char youtube_dl_search_txt[2048];
+    char search_txt[2048];
 
     if (pobj->platform == PLATFORM_SOUNDCLOUD) {
-      snprintf(youtube_dl_search_txt, 2048, "scsearch1:%s", pobj->content);
+      snprintf(search_txt, 2048, "scsearch1:%s", pobj->content);
 
       insert_queue_ret_error = insert_queue_ydl_query(
-          pobj->vgt->media, youtube_dl_search_txt, title, sizeof(title),
+          pobj->vgt->media, search_txt, title, sizeof(title),
           pobj->insert_index, PLATFORM_SOUNDCLOUD);
     } else {
-      snprintf(youtube_dl_search_txt, 2048, "ytsearch1:%s", pobj->content);
+      snprintf(search_txt, 2048, "ytsearch1:%s", pobj->content);
 
       insert_queue_ret_error = insert_queue_ydl_query(
-          pobj->vgt->media, youtube_dl_search_txt, title, sizeof(title),
+          pobj->vgt->media, search_txt, title, sizeof(title),
           pobj->insert_index, PLATFORM_YOUTUBE);
     }
 

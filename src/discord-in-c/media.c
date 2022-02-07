@@ -931,7 +931,10 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
     snprintf(ytobjptr->link, sizeof(ytobjptr->link),
              "https://www.youtube.com/watch?v=%s", uid);
   } else if (ytobjptr->platform == PLATFORM_SOUNDCLOUD) {
-    snprintf(ytobjptr->link, sizeof(ytobjptr->link), query);
+    snprintf(ytobjptr->link, sizeof(ytobjptr->link),
+             "https://w.soundcloud.com/player/?url=https%%3A//"
+             "api.soundcloud.com/tracks/%s",
+             uid);
   }
 
   strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description) - 2);
@@ -1272,8 +1275,8 @@ int fetch_soundcloud_playlist(char *url, int start, media_player_t *media,
         } else {
           // Some soundcloud tracks' json only contains an id
 
-          // FIXME This creates an unclickable link, and also contains
-          // unresolved fields which takes long to load with -queue
+          // FIXME These json contains unresolved fields, which takes long to
+          // load
           snprintf(ytb_obj.link, sizeof(ytb_obj.link),
                    "https://w.soundcloud.com/player/?url=https%%3A//"
                    "api.soundcloud.com/tracks/%d",

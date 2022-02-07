@@ -131,39 +131,6 @@ int parse_duration(double length, char *duration) {
   return 0;
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                 FETCH DATA                                 */
-/* -------------------------------------------------------------------------- */
-
-/* ----------------------------- FETCH PLAYLIST ----------------------------- */
-
-// Video playlist (where the link also contains a video) json macros
-#define VIDEO_JSON_KEYS_LEN 5
-#define VIDEO_JSON_KEYS                                                        \
-  {                                                                            \
-    "contents", "twoColumnWatchNextResults", "playlist", "playlist",           \
-        "contents"                                                             \
-  }
-#define VIDEO_JSON_DATA_KEY "playlistPanelVideoRenderer"
-
-// Playlist page json macros
-#define PAGE_JSON_KEYS_LEN 14
-#define PAGE_JSON_KEYS                                                         \
-  {                                                                            \
-    "contents", "twoColumnBrowseResultsRenderer", "tabs", "\0", "tabRenderer", \
-        "content", "sectionListRenderer", "contents", "\0",                    \
-        "itemSectionRenderer", "contents", "\0", "playlistVideoListRenderer",  \
-        "contents"                                                             \
-  }
-#define PAGE_JSON_DATA_KEY "playlistVideoRenderer"
-
-// Error codes
-#define JSON_ERR -1
-#define FETCH_ERR 1
-#define TRIM_ERR 2
-#define LEN_ERR 3
-#define KEY_ERR 4 // Happens with invalid playlist IDs
-
 int parse_description_timestamps(char *description, cJSON *timestamp_arr) {
   char *saveptr1;
 
