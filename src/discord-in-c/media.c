@@ -1063,11 +1063,12 @@ void clear_media_player(media_player_t *media) {
 #define PAGE_JSON_DATA_KEY "playlistVideoRenderer"
 
 // Error codes
-#define JSON_ERR -1
+#define NOT_IMPLEMENTED_ERR -1
 #define FETCH_ERR 1
 #define TRIM_ERR 2
 #define LEN_ERR 3
 #define KEY_ERR 4 // Happens with invalid playlist IDs
+#define JSON_ERR 5
 
 int fetch_youtube_playlist(char *url, int start, media_player_t *media,
                            char *title, int title_len) {
@@ -1222,7 +1223,12 @@ int fetch_soundcloud_playlist(char *url, int start, media_player_t *media,
   }
 
   // Check if playlist page or video playlist
-  int playlist_page = strstr(url, "/playlist") != NULL;
+  int embedded_page = strstr(url, "?in=") != NULL;
+
+  if (embedded_page) {
+    ret = NOT_IMPLEMENTED_ERR;
+    goto SC_PLAYLIST_FETCH_CLEANUP;
+  }
 
   json = cJSON_Parse(html);
 

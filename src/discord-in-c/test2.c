@@ -350,7 +350,8 @@ void *threaded_play_cmd(void *ptr) {
         fprintf(stdout, "ERROR: youtube-dl unable to queue song.\n");
       }
     } else if (!strncasecmp(pobj->content, "https://soundcloud.com/", 23) &&
-               strstr(pobj->content, "/sets/") == NULL) {
+               ((strstr(pobj->content, "?in=") == NULL) == // XNOR
+                (strstr(pobj->content, "/sets/") == NULL))) {
 
       insert_queue_ret_error = insert_queue_ydl_query(
           pobj->vgt->media, pobj->content, title, sizeof(title),
@@ -422,7 +423,8 @@ void *threaded_play_cmd(void *ptr) {
 
       simple_send_msg(pobj->dis, message, pobj->textchannelid);
     } else if (!strncasecmp(pobj->content, "https://soundcloud.com/", 23) &&
-               strstr(pobj->content, "/sets/") != NULL) {
+               strstr(pobj->content, "/sets/") != NULL &&
+               strstr(pobj->content, "?in=") == NULL) {
 
       // If Soundcloud playlist ============================================
       // TODO: Support for /kshiraki/cheerful-girl?in=kshiraki/sets/fusion-vol-1
