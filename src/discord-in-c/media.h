@@ -38,8 +38,8 @@
 #define YOUTUBE_WEBPAGE_URL_SIZE 2048
 #define MAX_URL_LEN_MEDIA 16384
 
-#define PLATFORM_YOUTUBE_ID 0
-#define PLATFORM_SOUNDCLOUD_ID 1
+#define PLATFORM_YOUTUBE 0
+#define PLATFORM_SOUNDCLOUD 1
 
 #define FORMAT_M4A "bestaudio[ext=m4a]"
 #define FORMAT_MP3 "bestaudio[ext=mp3]"
@@ -64,14 +64,33 @@ media_player_t *modify_player(media_player_t *media, char *key_str,
                               voice_gateway_t *vgt);
 
 int insert_queue_ydl_query(media_player_t *media, char *ydl_query,
-                           char *return_title, int return_title_len, int index);
+                           char *return_title, int return_title_len, int index,
+                           int platform);
 
-void insert_queue_ytb_partial(media_player_t *media, char *id, char *title,
-                              char *duration, int length);
+/**
+ * @brief Fetches playlist and inserts into media list through callback.
+ * Error codes:
+ *  1: Curl error,
+ *  2: Trim error,
+ *  3: Json lengthText key error,
+ *  4: Json playlist key error (likely due to invalid playlist ID)
 
-int insert_queue_soundcloud(media_player_t *media, char *snd_cld_query,
-                            char *return_title, int return_title_len,
-                            int index);
+ * @param url Video URL
+ * @param start Start index
+ * @param media Media object for callback
+ * @param callback Insert partial youtube page callback
+ * @param title Pointer to buffer where the title will be stored. Should contain
+ atleast 200 characters
+ * @return Error code
+ */
+int fetch_youtube_playlist(char *url, int start, media_player_t *media,
+                           char *title, int title_len);
+
+int fetch_soundcloud_playlist(char *url, int start, media_player_t *media,
+                              char *title, int title_len);
+
+void insert_queue_ytb_partial(media_player_t *media,
+                              youtube_page_object_t *ytobj);
 
 void complete_youtube_object_fields(youtube_page_object_t *ytobjptr);
 

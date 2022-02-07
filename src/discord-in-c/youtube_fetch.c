@@ -117,6 +117,20 @@ int parse_time(char *const time) {
   return h * 3600 + m * 60 + s;
 }
 
+int parse_duration(double length, char *duration) {
+  int secs = ((int)length / 1000) % 60;
+  int mins = ((int)(length / 1000 / 60) % 60);
+  int hrs = ((int)(length / 1000 / 3600));
+
+  if (hrs != 0) {
+    snprintf(duration, 16, "%d:%02d:%02d", hrs, mins, secs);
+  } else {
+    snprintf(duration, 16, "%2d:%02d", mins, secs);
+  }
+
+  return 0;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                 FETCH DATA                                 */
 /* -------------------------------------------------------------------------- */
@@ -144,129 +158,11 @@ int parse_time(char *const time) {
 #define PAGE_JSON_DATA_KEY "playlistVideoRenderer"
 
 // Error codes
+#define JSON_ERR -1
 #define FETCH_ERR 1
 #define TRIM_ERR 2
 #define LEN_ERR 3
 #define KEY_ERR 4 // Happens with invalid playlist IDs
-
-int fetch_playlist(char *url, int start, void *media,
-                   insert_partial_ytp_callback_f callback, char *title) {
-
-  // Fetch html
-  char *html = NULL;
-  cJSON *video_json_list = NULL;
-  int ret = 0;
-
-  int fetch_err = fetch_get(url, &html);
-  if (fetch_err) {
-    ret = FETCH_ERR;
-    goto PLAYLIST_FETCH_CLEANUP;
-  }
-
-  // Search for data json and trim
-  int trim_err = trim_between(html, "ytInitialData = ", ";</script>");
-  if (trim_err) {
-    ret = TRIM_ERR;
-    goto PLAYLIST_FETCH_CLEANUP;
-  }
-
-  // Check if playlist page or video playlist
-  int playlist_page = strstr(url, "/playlist") != NULL;
-
-  // Get inner video list
-  video_json_list = cJSON_Parse(html);
-  cJSON *inner_json = video_json_list;
-
-  char *playlist_title = NULL;
-
-  // Navigate into inner json
-  if (playlist_page) {
-    char keys[PAGE_JSON_KEYS_LEN][50] = PAGE_JSON_KEYS;
-
-    playlist_title = cJSON_GetStringValue(cJSON_GetObjectItem(
-        cJSON_GetObjectItem(cJSON_GetObjectItem(inner_json, "metadata"),
-                            "playlistMetadataRenderer"),
-        "title"));
-
-    for (int i = 0; i < PAGE_JSON_KEYS_LEN; i++) {
-      if (!keys[i][0]) {
-        inner_json = cJSON_GetArrayItem(inner_json, 0);
-      } else {
-        inner_json = cJSON_GetObjectItem(inner_json, keys[i]);
-      }
-    }
-
-  } else {
-    char keys[VIDEO_JSON_KEYS_LEN][50] = VIDEO_JSON_KEYS;
-
-    for (int i = 0; i < VIDEO_JSON_KEYS_LEN; i++) {
-      inner_json = cJSON_GetObjectItem(inner_json, keys[i]);
-
-      if (strncmp(keys[i], "playlist", 8) == 0 && !playlist_title) {
-        playlist_title = cJSON_GetStringValue(cJSON_GetObjectItem(
-            cJSON_GetObjectItem(inner_json, "playlist"), "title"));
-      }
-    }
-
-    // Invalid playlist IDs will be missing keys here
-    if (!inner_json) {
-      ret = KEY_ERR;
-      goto PLAYLIST_FETCH_CLEANUP;
-    }
-  }
-
-  snprintf(title, strlen(playlist_title) + 1, "%s", playlist_title);
-
-  int len = cJSON_GetArraySize(inner_json);
-
-  // Insert each video
-  for (int i = start; i < len; i++) {
-    cJSON *data = cJSON_GetArrayItem(inner_json, i);
-
-    // Skip if the last video json is a continuation link rather than a video
-    if (cJSON_HasObjectItem(data, "continuationItemRenderer")) {
-      continue;
-    }
-
-    cJSON *video = cJSON_GetObjectItem(
-        data, playlist_page ? PAGE_JSON_DATA_KEY : VIDEO_JSON_DATA_KEY);
-
-    // Get key values
-    char *id = cJSON_GetStringValue(cJSON_GetObjectItem(video, "videoId"));
-
-    char *song_title;
-    if (playlist_page) {
-      song_title = cJSON_GetStringValue(cJSON_GetObjectItem(
-          cJSON_GetArrayItem(
-              cJSON_GetObjectItem(cJSON_GetObjectItem(video, "title"), "runs"),
-              0),
-          "text"));
-    } else {
-      song_title = cJSON_GetStringValue(cJSON_GetObjectItem(
-          cJSON_GetObjectItem(video, "title"), "simpleText"));
-    }
-
-    char *duration = cJSON_GetStringValue(cJSON_GetObjectItem(
-        cJSON_GetObjectItem(video, "lengthText"), "simpleText"));
-
-    if (!duration) {
-      ret = LEN_ERR;
-      goto PLAYLIST_FETCH_CLEANUP;
-    }
-
-    int time = parse_time(duration);
-
-    callback(media, id, song_title, duration, time);
-  }
-
-PLAYLIST_FETCH_CLEANUP:
-  if (video_json_list != NULL)
-    cJSON_Delete(video_json_list);
-  if (html != NULL)
-    free(html);
-
-  return ret;
-}
 
 int parse_description_timestamps(char *description, cJSON *timestamp_arr) {
   char *saveptr1;
