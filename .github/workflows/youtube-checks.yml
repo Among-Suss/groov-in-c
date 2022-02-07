@@ -15,6 +15,6 @@ jobs:
     - uses: actions/checkout@v2
     - name: Get dependencies
       run: sudo apt-get install libcurl4-openssl-dev
-    # - name: Checks
-      # working-directory: ./src/tests
-      # run: make tests
+    - name: Checks
+      working-directory: ./src/tests
+      run: make tests

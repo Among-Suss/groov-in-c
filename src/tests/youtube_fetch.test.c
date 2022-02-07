@@ -1,5 +1,8 @@
 #include "test.h"
+#include "../discord-in-c/sbuf.h"
+#include "../discord-in-c/sbuf.structs.h"
 #include "../discord-in-c/media.h"
+#include "../discord-in-c/media.structs.h"
 
 #define URL                                                                    \
   "https://www.youtube.com/"                                                   \
@@ -36,9 +39,13 @@ int main(int argc, char **argv) {
 
   char title[1024];
 
+  media_player_t *media = malloc(sizeof(media_player_t));
+
+  sbuf_init(&(media->song_queue));
+
   int url_err = 1;
   for (int i = 0; i < RETRIES; i++) {
-    url_err = fetch_youtube_playlist(URL, 0, NULL, title, sizeof(title));
+    url_err = fetch_youtube_playlist(URL, 0, media, title, sizeof(title));
     if (url_err == 0) {
       retries = i;
       break;
@@ -51,7 +58,7 @@ int main(int argc, char **argv) {
   int url_page_err = 1;
   for (int i = 0; i < RETRIES; i++) {
     url_page_err =
-        fetch_youtube_playlist(URL_PAGE, 0, NULL, title, sizeof(title));
+        fetch_youtube_playlist(URL_PAGE, 0, media, title, sizeof(title));
     if (url_page_err == 0) {
       retries = i;
       break;
@@ -62,7 +69,7 @@ int main(int argc, char **argv) {
   assert_str("Jazz", title, "Page URL should have correct title");
 
   int bad_url_err =
-      fetch_youtube_playlist(URL_BAD, 0, NULL, title, sizeof(title));
+      fetch_youtube_playlist(URL_BAD, 0, media, title, sizeof(title));
   assert(4, bad_url_err, "Bad URL should fail");
 
   // Timestamps at start
