@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Get dependencies
-      run: sudo apt-get install libcurl4-openssl-dev
+      run: sudo apt-get install libcurl4-openssl-dev libsodium-dev 
     - name: Checks
       working-directory: ./src/tests
       run: make tests
