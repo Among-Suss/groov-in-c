@@ -32,6 +32,7 @@
 #include "media.structs.h"
 #include "litesocket/litesocket.structs.h"
 #include "utils.h"
+#include "youtube_fetch.h"
 
 // helpers from opusrtp.c
 
@@ -430,21 +431,21 @@ int rtp_send_file_to_addr(const char *filename, int payload_type, int ssrc,
 
         // no need to log abnormal frame anymore
         /*
-        
+
         // timer to verify that sender is on time
         clock_gettime(clock_id, &end);
         long secediff = (long int)end.tv_sec - start.tv_sec;
         long usecdiff =
             (long)((end.tv_nsec - start.tv_nsec) / 1000) + secediff * 1000000;
 
-        
+
         if (usecdiff > 25000 || usecdiff < 15000) {
           log_trace("Audio Sender Abnormal Frame: "
                     "... "
                     "%ld\n",
                     usecdiff);
         }
-        
+
 
         start = end;
         */
@@ -836,8 +837,7 @@ media_player_t *modify_player(media_player_t *media, char *key_str_og,
   return 0;
 }
 
-int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr,
-                         int platform) {
+int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr) {
   int func_retval = 0;
   int pipeids[2];
 
@@ -862,7 +862,7 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr,
     argv[5] = "--get-duration";
     argv[6] = "-g";
     argv[7] = "-f";
-    argv[8] = platform == PLATFORM_YOUTUBE_ID ? FORMAT_M4A : FORMAT_MP3;
+    argv[8] = ytobjptr->platform == PLATFORM_YOUTUBE ? FORMAT_M4A : FORMAT_MP3;
     argv[9] = query;
     argv[10] = 0;
 
@@ -924,16 +924,17 @@ int get_youtube_vid_info(char *query, youtube_page_object_t *ytobjptr,
   *duration = 0;
   duration++;
 
-  ytobjptr->platform = platform;
-
   strncpy(ytobjptr->title, str, sizeof(ytobjptr->title) - 2);
   strncpy(ytobjptr->audio_url, audio_url, sizeof(ytobjptr->audio_url) - 2);
 
-  if (platform == PLATFORM_YOUTUBE_ID) {
+  if (ytobjptr->platform == PLATFORM_YOUTUBE) {
     snprintf(ytobjptr->link, sizeof(ytobjptr->link),
              "https://www.youtube.com/watch?v=%s", uid);
-  } else if (platform == PLATFORM_SOUNDCLOUD_ID) {
-    snprintf(ytobjptr->link, sizeof(ytobjptr->link), query);
+  } else if (ytobjptr->platform == PLATFORM_SOUNDCLOUD) {
+    snprintf(ytobjptr->link, sizeof(ytobjptr->link),
+             "https://w.soundcloud.com/player/?url=https%%3A//"
+             "api.soundcloud.com/tracks/%s",
+             uid);
   }
 
   strncpy(ytobjptr->description, desc, sizeof(ytobjptr->description) - 2);
@@ -971,16 +972,17 @@ CLEANUP_GETVIDINFO:
 // positive index will start from the back.
 // index should not be zero
 int insert_queue_ydl_query(media_player_t *media, char *ydl_query,
-                           char *return_title, int return_title_len,
-                           int index) {
+                           char *return_title, int return_title_len, int index,
+                           int platform) {
   media->skippable = 1;
 
   sem_wait(&(media->insert_song_mutex)); // necessary to fix -leave cmd
 
   youtube_page_object_t ytobj = {0};
+  ytobj.platform = platform;
 
   strncpy(ytobj.query, ydl_query, sizeof(ytobj.query) - 2);
-  int ret = get_youtube_vid_info(ydl_query, &ytobj, PLATFORM_YOUTUBE_ID);
+  int ret = get_youtube_vid_info(ydl_query, &ytobj);
 
   if (!ret) {
     if (index == -1) {
@@ -999,56 +1001,9 @@ int insert_queue_ydl_query(media_player_t *media, char *ydl_query,
   return (!ret) - 1;
 }
 
-/**
- *  Insert data from a json object into the song queue
- */
-void insert_queue_ytb_partial(media_player_t *media, char *id, char *title,
-                              char *duration, int length) {
-  media->skippable = 1;
-
-  youtube_page_object_t ytobj = {0};
-
-  snprintf(ytobj.link, sizeof(ytobj.link), "https://www.youtube.com/watch?v=%s",
-           id);
-  snprintf(ytobj.title, sizeof(ytobj.title), "%s", title);
-  snprintf(ytobj.duration, sizeof(ytobj.duration), "%s", duration);
-  ytobj.length_in_seconds = length;
-
-  sbuf_insert_front_value((&(media->song_queue)), &ytobj, sizeof(ytobj));
-}
-
-int insert_queue_soundcloud(media_player_t *media, char *sc_query,
-                            char *return_title, int return_title_len,
-                            int index) {
-  media->skippable = 1;
-
-  sem_wait(&(media->insert_song_mutex)); // necessary to fix -leave cmd
-
-  youtube_page_object_t sc_obj = {0};
-
-  strncpy(sc_obj.query, sc_query, sizeof(sc_obj.query) - 2);
-  int ret = get_youtube_vid_info(sc_query, &sc_obj, PLATFORM_SOUNDCLOUD_ID);
-
-  if (!ret) {
-    if (index == -1) {
-      sbuf_insert_front_value((&(media->song_queue)), &sc_obj, sizeof(sc_obj));
-    } else if (index > 0) {
-      int queue_size = media->song_queue.size;
-      int effective_index = index > queue_size ? queue_size : index;
-      sbuf_insert_value_position_from_back((&(media->song_queue)), &sc_obj,
-                                           sizeof(sc_obj), effective_index);
-    }
-  }
-
-  sem_post(&(media->insert_song_mutex));
-
-  strncpy(return_title, sc_obj.title, return_title_len - 1);
-  return (!ret) - 1;
-}
-
 // finish object evaluation for necessary informations
 void complete_youtube_object_fields(youtube_page_object_t *ytobjptr) {
-  get_youtube_vid_info(ytobjptr->link, ytobjptr, PLATFORM_YOUTUBE_ID);
+  get_youtube_vid_info(ytobjptr->link, ytobjptr);
 }
 
 void seek_media_player(media_player_t *media, int time_in_seconds) {
@@ -1085,4 +1040,274 @@ void clear_media_player(media_player_t *media) {
   sbuf_clear(&(media->song_queue));
   sbuf_insert_value_position_from_back(&(media->song_queue), &ytpobj,
                                        sizeof(ytpobj), 0);
+}
+
+// Playlists
+/* ----------------------------- FETCH PLAYLIST ----------------------------- */
+
+// Video playlist (where the link also contains a video) json macros
+#define VIDEO_JSON_KEYS_LEN 5
+#define VIDEO_JSON_KEYS                                                        \
+  {                                                                            \
+    "contents", "twoColumnWatchNextResults", "playlist", "playlist",           \
+        "contents"                                                             \
+  }
+#define VIDEO_JSON_DATA_KEY "playlistPanelVideoRenderer"
+
+// Playlist page json macros
+#define PAGE_JSON_KEYS_LEN 14
+#define PAGE_JSON_KEYS                                                         \
+  {                                                                            \
+    "contents", "twoColumnBrowseResultsRenderer", "tabs", "\0", "tabRenderer", \
+        "content", "sectionListRenderer", "contents", "\0",                    \
+        "itemSectionRenderer", "contents", "\0", "playlistVideoListRenderer",  \
+        "contents"                                                             \
+  }
+#define PAGE_JSON_DATA_KEY "playlistVideoRenderer"
+
+// Error codes
+#define NOT_IMPLEMENTED_ERR -1
+#define FETCH_ERR 1
+#define TRIM_ERR 2
+#define LEN_ERR 3
+#define KEY_ERR 4 // Happens with invalid playlist IDs
+#define JSON_ERR 5
+
+int fetch_youtube_playlist(char *url, int start, media_player_t *media,
+                           char *title, int title_len) {
+
+  // Fetch html
+  char *html = NULL;
+  cJSON *video_json_list = NULL;
+  int ret = 0;
+
+  int fetch_err = fetch_get(url, &html);
+  if (fetch_err) {
+    ret = FETCH_ERR;
+    goto PLAYLIST_FETCH_CLEANUP;
+  }
+
+  // Search for data json and trim
+  int trim_err = trim_between(html, "ytInitialData = ", ";</script>");
+  if (trim_err) {
+    ret = TRIM_ERR;
+    goto PLAYLIST_FETCH_CLEANUP;
+  }
+
+  // Check if playlist page or video playlist
+  int playlist_page = strstr(url, "/playlist") != NULL;
+
+  // Get inner video list
+  video_json_list = cJSON_Parse(html);
+  cJSON *inner_json = video_json_list;
+
+  char *playlist_title = NULL;
+
+  // Navigate into inner json
+  if (playlist_page) {
+    char keys[PAGE_JSON_KEYS_LEN][50] = PAGE_JSON_KEYS;
+
+    playlist_title = cJSON_GetStringValue(cJSON_GetObjectItem(
+        cJSON_GetObjectItem(cJSON_GetObjectItem(inner_json, "metadata"),
+                            "playlistMetadataRenderer"),
+        "title"));
+
+    for (int i = 0; i < PAGE_JSON_KEYS_LEN; i++) {
+      if (!keys[i][0]) {
+        inner_json = cJSON_GetArrayItem(inner_json, 0);
+      } else {
+        inner_json = cJSON_GetObjectItem(inner_json, keys[i]);
+      }
+    }
+
+  } else {
+    char keys[VIDEO_JSON_KEYS_LEN][50] = VIDEO_JSON_KEYS;
+
+    for (int i = 0; i < VIDEO_JSON_KEYS_LEN; i++) {
+      inner_json = cJSON_GetObjectItem(inner_json, keys[i]);
+
+      if (strncmp(keys[i], "playlist", 8) == 0 && !playlist_title) {
+        playlist_title = cJSON_GetStringValue(cJSON_GetObjectItem(
+            cJSON_GetObjectItem(inner_json, "playlist"), "title"));
+      }
+    }
+
+    // Invalid playlist IDs will be missing keys here
+    if (!inner_json) {
+      ret = KEY_ERR;
+      goto PLAYLIST_FETCH_CLEANUP;
+    }
+  }
+
+  snprintf(title, title_len + 1, "%s", playlist_title);
+
+  int len = cJSON_GetArraySize(inner_json);
+
+  // Insert each video
+  for (int i = start; i < len; i++) {
+    cJSON *data = cJSON_GetArrayItem(inner_json, i);
+
+    // Skip if the last video json is a continuation link rather than a video
+    if (cJSON_HasObjectItem(data, "continuationItemRenderer")) {
+      continue;
+    }
+
+    cJSON *video = cJSON_GetObjectItem(
+        data, playlist_page ? PAGE_JSON_DATA_KEY : VIDEO_JSON_DATA_KEY);
+
+    // Get key values
+    youtube_page_object_t ytb_obj = {0};
+
+    char *id = cJSON_GetStringValue(cJSON_GetObjectItem(video, "videoId"));
+
+    char *song_title;
+    if (playlist_page) {
+      song_title = cJSON_GetStringValue(cJSON_GetObjectItem(
+          cJSON_GetArrayItem(
+              cJSON_GetObjectItem(cJSON_GetObjectItem(video, "title"), "runs"),
+              0),
+          "text"));
+    } else {
+      song_title = cJSON_GetStringValue(cJSON_GetObjectItem(
+          cJSON_GetObjectItem(video, "title"), "simpleText"));
+    }
+
+    char *duration = cJSON_GetStringValue(cJSON_GetObjectItem(
+        cJSON_GetObjectItem(video, "lengthText"), "simpleText"));
+
+    if (!duration) {
+      ret = LEN_ERR;
+      goto PLAYLIST_FETCH_CLEANUP;
+    }
+
+    int time = parse_time(duration);
+
+    snprintf(ytb_obj.link, sizeof(ytb_obj.link) - 2,
+             "https://www.youtube.com/watch?v=%s", id);
+    strncpy(ytb_obj.title, song_title, sizeof(ytb_obj.title) - 2);
+    strncpy(ytb_obj.duration, duration, sizeof(ytb_obj.duration) - 2);
+    ytb_obj.length_in_seconds = time;
+
+    media->skippable = 1;
+
+    sbuf_insert_front_value((&(media->song_queue)), &ytb_obj, sizeof(ytb_obj));
+  }
+
+PLAYLIST_FETCH_CLEANUP:
+  if (video_json_list != NULL)
+    cJSON_Delete(video_json_list);
+  if (html != NULL)
+    free(html);
+
+  return ret;
+}
+
+int fetch_soundcloud_playlist(char *url, int start, media_player_t *media,
+                              char *title, int title_len) {
+
+  // Fetch html
+  char *html = NULL;
+  int ret = 0;
+  cJSON *json = NULL;
+  char *playlist_title = NULL;
+
+  int fetch_err = fetch_get(url, &html);
+  if (fetch_err) {
+    ret = FETCH_ERR;
+    goto SC_PLAYLIST_FETCH_CLEANUP;
+  }
+
+  // Search for data json and trim
+  int trim_err =
+      trim_between(html, "<script>window.__sc_hydration = ", ";</script>");
+  if (trim_err) {
+    ret = TRIM_ERR;
+    goto SC_PLAYLIST_FETCH_CLEANUP;
+  }
+
+  // Check if playlist page or video playlist
+  int embedded_page = strstr(url, "?in=") != NULL;
+
+  if (embedded_page) {
+    ret = NOT_IMPLEMENTED_ERR;
+    goto SC_PLAYLIST_FETCH_CLEANUP;
+  }
+
+  json = cJSON_Parse(html);
+
+  for (int i = 0; i < cJSON_GetArraySize(json); i++) {
+    cJSON *array_item = cJSON_GetArrayItem(json, i);
+
+    if (!strncmp(
+            cJSON_GetStringValue(cJSON_GetObjectItem(array_item, "hydratable")),
+            "playlist", 8)) {
+
+      cJSON *tracks_arr = cJSON_GetObjectItem(
+          cJSON_GetObjectItem(array_item, "data"), "tracks");
+
+      for (int i = 0; i < cJSON_GetArraySize(tracks_arr); i++) {
+        cJSON *track = cJSON_GetArrayItem(tracks_arr, i);
+
+        youtube_page_object_t ytb_obj = {0};
+
+        ytb_obj.platform = PLATFORM_SOUNDCLOUD;
+
+        if (cJSON_HasObjectItem(track, "permalink_url")) {
+          strncpy(
+              ytb_obj.link,
+              cJSON_GetStringValue(cJSON_GetObjectItem(track, "permalink_url")),
+              sizeof(ytb_obj.link) - 2);
+
+          if (cJSON_HasObjectItem(track, "title")) {
+            strncpy(ytb_obj.title,
+                    cJSON_GetStringValue(cJSON_GetObjectItem(track, "title")),
+                    sizeof(ytb_obj.title) - 2);
+          }
+
+          if (cJSON_HasObjectItem(track, "duration")) {
+            double length =
+                cJSON_GetNumberValue(cJSON_GetObjectItem(track, "duration"));
+
+            parse_duration(length, ytb_obj.duration);
+
+            ytb_obj.length_in_seconds = (int)length / 1000;
+          }
+        } else {
+          // Some soundcloud tracks' json only contains an id
+
+          // FIXME These json contains unresolved fields, which takes long to
+          // load
+          snprintf(ytb_obj.link, sizeof(ytb_obj.link),
+                   "https://w.soundcloud.com/player/?url=https%%3A//"
+                   "api.soundcloud.com/tracks/%d",
+                   (int)cJSON_GetNumberValue(cJSON_GetObjectItem(track, "id")));
+        }
+
+        media->skippable = 1;
+
+        sbuf_insert_front_value((&(media->song_queue)), &ytb_obj,
+                                sizeof(ytb_obj));
+      }
+
+      playlist_title = cJSON_GetStringValue(cJSON_GetObjectItem(
+          cJSON_GetObjectItem(array_item, "data"), "title"));
+
+      if (playlist_title == NULL) {
+        ret = JSON_ERR;
+        goto SC_PLAYLIST_FETCH_CLEANUP;
+      }
+
+      strncpy(title, playlist_title, title_len - 2);
+
+      break;
+    }
+  }
+
+SC_PLAYLIST_FETCH_CLEANUP:
+  if (json != NULL)
+    cJSON_Delete(json);
+  if (html != NULL)
+    free(html);
+
+  return ret;
 }

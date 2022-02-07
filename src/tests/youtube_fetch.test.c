@@ -1,5 +1,9 @@
 #include "test.h"
 #include "../discord-in-c/youtube_fetch.h"
+#include "../discord-in-c/sbuf.h"
+#include "../discord-in-c/sbuf.structs.h"
+#include "../discord-in-c/media.h"
+#include "../discord-in-c/media.structs.h"
 
 #define URL                                                                    \
   "https://www.youtube.com/"                                                   \
@@ -10,10 +14,10 @@
   "https://www.youtube.com/watch?v=01skyPMeeoc&list=PL8D03A4C0FFBBE36"
 
 #define MOCK_TS_DESC_START                                                     \
-  "Lorem　ipsum\n\n0:00 - Test1\n12:12 - Test2\n1:12:21 - Test3\n\nEnd\n"
+  "Lorem ipsum\n\n0:00 - Test1\n12:12 - Test2\n1:12:21 - Test3\n\nEnd\n"
 
 #define MOCK_TS_DESC_MID                                                       \
-  "Lorem ipsum\n\ntest - 0:00- Test1\ntest - 12:12 - Test2\ntest - 1:12:21 "  \
+  "Lorem ipsum\n\ntest - 0:00- Test1\ntest - 12:12 - Test2\ntest - 1:12:21 "   \
   "- Test3\n\nEnd\n"
 
 #define MOCK_TS_DESC_END                                                       \
@@ -36,9 +40,13 @@ int main(int argc, char **argv) {
 
   char title[1024];
 
+  media_player_t *media = malloc(sizeof(media_player_t));
+
+  sbuf_init(&(media->song_queue));
+
   int url_err = 1;
   for (int i = 0; i < RETRIES; i++) {
-    url_err = fetch_playlist(URL, 0, NULL, mock_insert, title);
+    url_err = fetch_youtube_playlist(URL, 0, media, title, sizeof(title));
     if (url_err == 0) {
       retries = i;
       break;
@@ -50,7 +58,8 @@ int main(int argc, char **argv) {
 
   int url_page_err = 1;
   for (int i = 0; i < RETRIES; i++) {
-    url_page_err = fetch_playlist(URL_PAGE, 0, NULL, mock_insert, title);
+    url_page_err =
+        fetch_youtube_playlist(URL_PAGE, 0, media, title, sizeof(title));
     if (url_page_err == 0) {
       retries = i;
       break;
@@ -60,7 +69,8 @@ int main(int argc, char **argv) {
          retries + 1);
   assert_str("Jazz", title, "Page URL should have correct title");
 
-  int bad_url_err = fetch_playlist(URL_BAD, 0, NULL, mock_insert, title);
+  int bad_url_err =
+      fetch_youtube_playlist(URL_BAD, 0, media, title, sizeof(title));
   assert(4, bad_url_err, "Bad URL should fail");
 
   // Timestamps at start

@@ -279,6 +279,7 @@ struct play_cmd_obj {
   char *content;
   char *textchannelid;
   int insert_index;
+  int platform;
 };
 void *threaded_play_cmd(void *ptr) {
   pthread_detach(pthread_self());
@@ -337,20 +338,24 @@ void *threaded_play_cmd(void *ptr) {
   char title[200] = {0};
   int insert_queue_ret_error = 1;
   int queued_playlist = 0;
+  // If url
   if (!strncasecmp(pobj->content, "https://", 8)) {
     fprintf(stdout, "Query provided as URL.\n");
     if (!strncasecmp(pobj->content, "https://youtu.be/", 17) ||
         !strncasecmp(pobj->content, "https://www.youtube.com/watch?v=", 32)) {
-      insert_queue_ret_error =
-          insert_queue_ydl_query(pobj->vgt->media, pobj->content, title,
-                                 sizeof(title), pobj->insert_index);
+      insert_queue_ret_error = insert_queue_ydl_query(
+          pobj->vgt->media, pobj->content, title, sizeof(title),
+          pobj->insert_index, PLATFORM_YOUTUBE);
       if (insert_queue_ret_error) {
         fprintf(stdout, "ERROR: youtube-dl unable to queue song.\n");
       }
-    } else if (!strncasecmp(pobj->content, "https://soundcloud.com/", 23)) {
-      insert_queue_ret_error =
-          insert_queue_soundcloud(pobj->vgt->media, pobj->content, title,
-                                  sizeof(title), pobj->insert_index);
+    } else if (!strncasecmp(pobj->content, "https://soundcloud.com/", 23) &&
+               ((strstr(pobj->content, "?in=") == NULL) == // XNOR
+                (strstr(pobj->content, "/sets/") == NULL))) {
+
+      insert_queue_ret_error = insert_queue_ydl_query(
+          pobj->vgt->media, pobj->content, title, sizeof(title),
+          pobj->insert_index, PLATFORM_SOUNDCLOUD);
     } else {
       fprintf(stdout, "Invalid youtube url provided.\n");
     }
@@ -393,10 +398,9 @@ void *threaded_play_cmd(void *ptr) {
 
       char *playlist_title = malloc(sizeof(char) * 1024);
       for (int i = 0; i < RETRIES; i++) {
-        playlist_err = fetch_playlist(
-            pobj->content, start_index + 1, pobj->vgt->media,
-            (insert_partial_ytp_callback_f)insert_queue_ytb_partial,
-            playlist_title);
+        playlist_err =
+            fetch_youtube_playlist(pobj->content, start_index + 1,
+                                   pobj->vgt->media, playlist_title, 1024);
 
         // If pass or KEY_ERR (for invalid urls)
         if (playlist_err == 0 || playlist_err == 4) {
@@ -418,14 +422,63 @@ void *threaded_play_cmd(void *ptr) {
       free(playlist_title);
 
       simple_send_msg(pobj->dis, message, pobj->textchannelid);
+    } else if (!strncasecmp(pobj->content, "https://soundcloud.com/", 23) &&
+               strstr(pobj->content, "/sets/") != NULL &&
+               strstr(pobj->content, "?in=") == NULL) {
+
+      // If Soundcloud playlist ============================================
+      // TODO: Support for /kshiraki/cheerful-girl?in=kshiraki/sets/fusion-vol-1
+      // type url
+      queued_playlist = 1;
+
+      int playlist_err = 0;
+      int start_index = 0;
+      int song_count = 0;
+      char *playlist_title = malloc(sizeof(char) * 1024);
+
+      for (int i = 0; i < RETRIES; i++) {
+        playlist_err =
+            fetch_soundcloud_playlist(pobj->content, start_index + 1,
+                                      pobj->vgt->media, playlist_title, 1024);
+
+        // If pass or KEY_ERR (for invalid urls)
+        if (playlist_err == 0 || playlist_err == 4) {
+          break;
+        }
+      }
+      int new_song_count = pobj->vgt->media->song_queue.size - song_count;
+
+      char message[1024];
+
+      if (playlist_err) {
+        fprintf(stdout, "Playlist error code: %d\n", playlist_err);
+        snprintf(message, 1024, "Invalid playlist! Is the list private?");
+      } else {
+        snprintf(message, 1024, "Queued `%d` songs from `%s`", new_song_count,
+                 playlist_title);
+      }
+
+      free(playlist_title);
+      simple_send_msg(pobj->dis, message, pobj->textchannelid);
     }
   } else {
     fprintf(stdout, "Query provided as a search token.\n");
-    char youtube_dl_search_txt[2048];
-    snprintf(youtube_dl_search_txt, 2048, "ytsearch1:%s", pobj->content);
-    insert_queue_ret_error =
-        insert_queue_ydl_query(pobj->vgt->media, youtube_dl_search_txt, title,
-                               sizeof(title), pobj->insert_index);
+    char search_txt[2048];
+
+    if (pobj->platform == PLATFORM_SOUNDCLOUD) {
+      snprintf(search_txt, 2048, "scsearch1:%s", pobj->content);
+
+      insert_queue_ret_error = insert_queue_ydl_query(
+          pobj->vgt->media, search_txt, title, sizeof(title),
+          pobj->insert_index, PLATFORM_SOUNDCLOUD);
+    } else {
+      snprintf(search_txt, 2048, "ytsearch1:%s", pobj->content);
+
+      insert_queue_ret_error = insert_queue_ydl_query(
+          pobj->vgt->media, search_txt, title, sizeof(title),
+          pobj->insert_index, PLATFORM_YOUTUBE);
+    }
+
     if (insert_queue_ret_error) {
       fprintf(stdout, "ERROR: youtube-dl unable to queue song.\n");
     }
@@ -824,6 +877,8 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
   }
   queue_page -= 1;
 
+  send_typing_indicator(dis, textchannelid);
+
   // get all the titles
   char *(title_arr[QUEUELENGTH * 2]) = {0};
   sbuf_iterate(&(vgt->media->song_queue), get_queue_callback, title_arr,
@@ -908,7 +963,8 @@ void show_queue_command(voice_gateway_t *vgt, discord_t *dis,
 
 void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
                   char *guildid, char *textchannelid, char *content,
-                  int wrong_vc, int has_user, int is_dj, int insert_index) {
+                  int wrong_vc, int has_user, int is_dj, int insert_index,
+                  int platform) {
   CHECK_IN_VC(uobjp, guildid, dis, textchannelid)
   CHECK_RIGHT_VC(wrong_vc, dis, textchannelid)
   CHECK_PERMISSIONS(is_dj, dis, textchannelid)
@@ -918,6 +974,7 @@ void play_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
   pobj->vgt = vgt;
   pobj->uobj = *uobjp;
   pobj->insert_index = insert_index;
+  pobj->platform = platform;
 
   pobj->content = malloc(strlen(content) + 1);
   strcpy(pobj->content, content);
@@ -1285,6 +1342,7 @@ void help_command(voice_gateway_t *vgt, discord_t *dis, user_vc_obj *uobjp,
       message, 9500, DISCORD_API_POST_BODY_MSG_EMBED,
       "List of Commands:", "groov-in-c",
       "Play music:                 `-p [youtube link or text to search youtube]`\\n\
+      Play music (soundcloud)     `-psc [text to search soundcloud]`\\n\
       Play next (cut queue):      `-pn [youtube link or text]`\\n\
       Pause music:                `-pause`\\n\
       Resume after pause:         `-play`\\n\
@@ -1471,7 +1529,10 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
                            wrong_vc, has_user);
       } else if (!strncasecmp(content + 1, "p ", 2)) {
         play_command(vgt, dis, &uobj, guildid, textchannelid, content, wrong_vc,
-                     has_user, is_dj, -1);
+                     has_user, is_dj, -1, PLATFORM_YOUTUBE);
+      } else if (!strncasecmp(content + 1, "psc ", 4)) {
+        play_command(vgt, dis, &uobj, guildid, textchannelid, content + 2,
+                     wrong_vc, has_user, is_dj, -1, PLATFORM_SOUNDCLOUD);
       } else if (!strncasecmp(content + 1, "seek ", 5)) {
         seek_command(vgt, dis, &uobj, guildid, textchannelid, content, wrong_vc,
                      has_user, is_dj);
@@ -1489,13 +1550,13 @@ void actually_do_shit(void *state, char *msg, unsigned long msg_len) {
                       has_user, is_dj);
       } else if (!strncasecmp(content + 1, "play ", 5)) {
         play_command(vgt, dis, &uobj, guildid, textchannelid, content + 3,
-                     wrong_vc, has_user, is_dj, -1);
+                     wrong_vc, has_user, is_dj, -1, PLATFORM_YOUTUBE);
       } else if (!strncasecmp(content + 1, "play", 4)) {
         resume_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc,
                        has_user, is_dj);
       } else if (!strncasecmp(content + 1, "pn ", 3)) {
         play_command(vgt, dis, &uobj, guildid, textchannelid, content + 1,
-                     wrong_vc, has_user, is_dj, 1);
+                     wrong_vc, has_user, is_dj, 1, PLATFORM_YOUTUBE);
       } else if (!strncasecmp(content + 1, "log", 3)) {
         log_command(vgt, dis, &uobj, guildid, textchannelid, wrong_vc, has_user,
                     is_dj, LOG_FILE);
