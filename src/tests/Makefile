@@ -1,22 +1,22 @@
 tests: youtube_fetch_test
 
 MAINDIR=../discord-in-c
-OBJDIR=../discord-in-c/obj
+OBJDIR=$(MAINDIR)/obj
 CC=gcc
-CFLAGS=-g -Wall -Wextra -Wno-unused-parameter
+CFLAGS=-g
 MACROS=-DLOG_USE_COLOR -DLOGGING
 LFLAGS=-lpthread -lssl -lcrypto -lsodium -lopus -logg -lm -lcurl
 
 DEPS=$(OBJDIR)/litesocket.o $(OBJDIR)/cJSON.o $(OBJDIR)/discord.o $(OBJDIR)/log.o $(OBJDIR)/media.o $(OBJDIR)/sbuf.o $(OBJDIR)/strmap.o $(OBJDIR)/youtube_fetch.o
-youtube_fetch_test: youtube_fetch.test.c
-	@$(CC) -o youtube_fetch.test youtube_fetch.test.c $(DEPS) $(CFLAGS) $(LFLAGS)
+youtube_fetch_test: youtube_fetch.test.c $(OBJDIR) $(DEPS)
+	@$(CC) -o youtube_fetch.test $(MACROS) youtube_fetch.test.c $(DEPS) $(CFLAGS) $(LFLAGS)
 	@./youtube_fetch.test
 
-$(OBJDIR)/litesocket.o: litesocket/litesocket.c litesocket/litesocket.h litesocket/litesocket.structs.h
-	$(CC) -o $(OBJDIR)/litesocket.o -c $(MACROS) litesocket/litesocket.c $(CFLAGS)
+$(OBJDIR)/litesocket.o: $(MAINDIR)/litesocket/litesocket.c $(MAINDIR)/litesocket/litesocket.h $(MAINDIR)/litesocket/litesocket.structs.h
+	@$(CC) -o $(OBJDIR)/litesocket.o -c $(MACROS) $(MAINDIR)/litesocket/litesocket.c $(CFLAGS)
 
-$(OBJDIR)/%.o: %.c %.h
-	$(CC) -o $@ -c $(MACROS) $(*F).c $(CFLAGS)
+$(OBJDIR)/%.o: $(MAINDIR)/%.c $(MAINDIR)/%.h
+	@$(CC) -o $@ -c $(MACROS) $(MAINDIR)/$(*F).c $(CFLAGS)
 
 $(OBJDIR):
-	mkdir -p $(OBJDIR)
+	@mkdir -p $(OBJDIR)

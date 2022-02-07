@@ -1,4 +1,5 @@
 #include "test.h"
+#include "../discord-in-c/youtube_fetch.h"
 #include "../discord-in-c/sbuf.h"
 #include "../discord-in-c/sbuf.structs.h"
 #include "../discord-in-c/media.h"
