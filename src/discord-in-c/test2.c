@@ -1591,8 +1591,6 @@ int main(int argc, char **argv) {
   FILE *fp = fopen(LOG_FILE, "w");
   log_add_fp(fp, log_level);
 
-  log_info("Bot online!");
-
   // make sure fprintf stdout works on docker
   setbuf(stdout, NULL);
 
@@ -1613,6 +1611,12 @@ int main(int argc, char **argv) {
   } else {
     bottoken = getenv("TOKEN");
   }
+
+  if (!bottoken) {
+    log_error("Error! No bot token present. Please set the TOKEN env var or pass the token as the first argument.\n");
+    return;
+  }
+
   discord_t *discord = init_discord(bottoken, "641");
 
   fprintf(stdout, "Token: %s\n", bottoken);
@@ -1624,6 +1628,8 @@ int main(int argc, char **argv) {
 
   set_gateway_callback(discord, actually_do_shit);
   connect_gateway(discord);
+
+  log_info("Bot online!");
 
   while (1)
     sleep(100);
