@@ -1,6 +1,10 @@
 # groov-in-c
 
-THIS BOT IS NO LONGER BEING MAINTAINED AND IS BEING DEPRECATED IN FAVOR OF https://github.com/Among-Suss/mimicri. Check out Mimicri a small, self-contained music bot written in Rust with database and history functionality.
+**THIS BOT IS NO LONGER BEING MAINTAINED**
+
+It is being deprecated in favor of https://github.com/Among-Suss/mimicri. Check out Mimicri a small, self-contained music bot written in Rust with database and history functionality. 
+
+Note: *Information below on the Heroku free-tier may be outdated*
 
 
 A small, fast, easy to host Discord music bot written in C.
