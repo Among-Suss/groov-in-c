@@ -2,8 +2,6 @@
 
 THIS BOT IS NO LONGER BEING MAINTAINED AND IS BEING DEPRECATED IN FAVOR OF https://github.com/Among-Suss/mimicri. Check out Mimicri a small, self-contained music bot written in Rust with database and history functionality.
 
-![Docker Build](https://github.com/Among-Suss/groov-in-c/actions/workflows/docker-build.yml/badge.svg)
-![Parser Checks](https://github.com/Among-Suss/groov-in-c/actions/workflows/youtube-checks.yml/badge.svg)
 
 A small, fast, easy to host Discord music bot written in C.
 
